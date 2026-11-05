@@ -73,7 +73,7 @@ export async function createVisibleWorker(
       },
     },
   });
-  return { id: user.id, phone };
+  return { id: user.id, phone, token: signAccessToken(user.id, 'WORKER') };
 }
 
 // Creates an admin directly in the DB and returns a ready-made access token (login is covered in auth tests).
