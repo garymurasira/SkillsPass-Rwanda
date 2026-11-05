@@ -3,6 +3,8 @@ import { createApp } from '../src/app';
 import { prisma } from '../src/shared/prisma';
 import { setSms } from '../src/shared/sms';
 import { skillTypes } from '../prisma/skill-types';
+import { encrypt, hashPhone } from '../src/shared/crypto';
+import { signAccessToken } from '../src/modules/auth/tokens';
 
 export const app = createApp();
 
@@ -28,7 +30,21 @@ export async function resetDb() {
   }
 }
 
-export const workerBody = (phone = '0788123456') => ({
+// Creates an admin directly in the DB and returns a ready-made access token (login is covered in auth tests).
+export async function createAdmin(phone = '+250780000002') {
+  const user = await prisma.user.create({
+    data: {
+      role: 'ADMIN',
+      phoneHash: hashPhone(phone),
+      phoneEncrypted: encrypt(phone),
+      name: 'Admin Alice',
+      admin: { create: { secondFactorEnabled: true } },
+    },
+  });
+  return { id: user.id, token: signAccessToken(user.id, 'ADMIN') };
+}
+
+export const workerBody =(phone = '0788123456') => ({
   role: 'WORKER',
   phone,
   name: 'Jean Mugabo',
