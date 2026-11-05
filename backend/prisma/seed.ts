@@ -1,16 +1,8 @@
 import { prisma } from '../src/shared/prisma';
 import { encrypt, hashPhone, normalizePhone } from '../src/shared/crypto';
+import { skillTypes } from './skill-types';
 import { generateTotpSecret, otpauthUrl } from '../src/shared/totp';
 
-const skillTypes = [
-  { slug: 'electrician', nameEn: 'Electrician', nameRw: 'Umukozi w\'amashanyarazi', nameFr: 'Électricien' },
-  { slug: 'plumber', nameEn: 'Plumber', nameRw: 'Umukanishi w\'amazi', nameFr: 'Plombier' },
-  { slug: 'carpenter', nameEn: 'Carpenter', nameRw: 'Umubaji', nameFr: 'Menuisier' },
-  { slug: 'solar-technician', nameEn: 'Solar technician', nameRw: 'Umutekinisiye w\'imirasire y\'izuba', nameFr: 'Technicien solaire' },
-  { slug: 'mechanic', nameEn: 'Mechanic', nameRw: 'Umukanishi', nameFr: 'Mécanicien' },
-  { slug: 'mason', nameEn: 'Mason', nameRw: 'Umufundi', nameFr: 'Maçon' },
-  { slug: 'welder', nameEn: 'Welder', nameRw: 'Umusudira', nameFr: 'Soudeur' },
-];
 
 // Development-only admin so the verification workflow can be exercised. Do not seed this in production.
 const DEV_ADMIN_PHONE = '+250780000000';

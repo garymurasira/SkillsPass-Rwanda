@@ -18,6 +18,7 @@ export default defineConfig({
       JWT_REFRESH_SECRET: 'test-refresh-secret-test-refresh-secret',
       DATA_ENCRYPTION_KEY: '0'.repeat(64),
       PHONE_HASH_KEY: 'test-phone-hash-key',
+      UPLOAD_DIR: '.test-uploads',
     },
   },
 });

@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { prisma } from '../src/shared/prisma';
 import { setSms } from '../src/shared/sms';
+import { skillTypes } from '../prisma/skill-types';
 
 export const app = createApp();
 
@@ -17,11 +18,14 @@ export function lastCode(phone: string): string {
 
 export async function resetDb() {
   sent.length = 0;
-  // Keep reference data (SkillType); wipe everything else.
+  // Keep reference data (SkillType, ensured below); wipe everything else.
   await prisma.$executeRawUnsafe(
     `TRUNCATE "Message","Rating","Job","Favorite","PortfolioPhoto","Reference","VerificationRound","Skill",
      "RefreshToken","OtpCode","Admin","Employer","Worker","User" RESTART IDENTITY CASCADE`,
   );
+  for (const st of skillTypes) {
+    await prisma.skillType.upsert({ where: { slug: st.slug }, update: st, create: st });
+  }
 }
 
 export const workerBody = (phone = '0788123456') => ({
