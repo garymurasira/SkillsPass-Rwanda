@@ -276,6 +276,7 @@ model Rating {
 
 model Message {
   id         String    @id @default(uuid())
+  seq        Int       @unique @default(autoincrement()) // total order for threads and polling cursors
   senderId   String
   receiverId String
   content    String
@@ -285,6 +286,7 @@ model Message {
   sender   User @relation("MessageSender", fields: [senderId], references: [id])
   receiver User @relation("MessageReceiver", fields: [receiverId], references: [id])
 
-  @@index([senderId, receiverId, sentAt])
+  @@index([senderId, receiverId, seq])
+  @@index([receiverId, senderId, seq])
   @@index([receiverId, readAt])
 }
