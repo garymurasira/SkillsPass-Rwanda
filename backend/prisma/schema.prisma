@@ -86,9 +86,9 @@ model OtpCode {
   payload    Json? // registration details held until the phone number is proven (REGISTER only)
   codeHash   String
   expiresAt  DateTime
-  attempts   Int       @default(0)
+  attempts   Int        @default(0)
   consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime   @default(now())
 
   @@index([phoneHash, createdAt])
 }
@@ -128,12 +128,15 @@ model Employer {
 }
 
 model Worker {
-  userId       String  @id
-  region       String
-  city         String
-  bio          String? @db.VarChar(300) // FR 2.3
-  photoUrl     String?
-  shareContact Boolean @default(false) // BR 5: phone visible to others only if true
+  userId        String  @id
+  region        String
+  city          String
+  bio           String? @db.VarChar(300) // FR 2.3
+  photoUrl      String?
+  shareContact  Boolean @default(false) // BR 5: phone visible to others only if true
+  // Denormalised from Rating and updated whenever a rating is added, so search can filter and sort on it cheaply.
+  ratingAverage Float?
+  ratingCount   Int     @default(0)
 
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   skills    Skill[]
@@ -143,6 +146,7 @@ model Worker {
   ratings   Rating[]
 
   @@index([region, city])
+  @@index([ratingAverage])
 }
 
 // ───────────── Skills & verification ─────────────

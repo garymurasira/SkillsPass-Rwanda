@@ -30,6 +30,52 @@ export async function resetDb() {
   }
 }
 
+let phoneCounter = 0;
+
+// Creates a worker straight in the DB (fast) for search tests. Defaults to fully visible to employers.
+export async function createVisibleWorker(
+  o: {
+    name?: string;
+    skill?: string;
+    region?: string;
+    city?: string;
+    rating?: number | null;
+    ratingCount?: number;
+    status?: 'PENDING' | 'VERIFIED' | 'NOT_VERIFIED';
+    bio?: string | null;
+    photoUrl?: string | null;
+    shareContact?: boolean;
+    years?: number;
+  } = {},
+) {
+  const phone = `+25078${String(1_000_000 + ++phoneCounter)}`;
+  const skillType = await prisma.skillType.findUniqueOrThrow({ where: { slug: o.skill ?? 'solar-technician' } });
+  const rating = o.rating === undefined ? null : o.rating;
+  const user = await prisma.user.create({
+    data: {
+      role: 'WORKER',
+      phoneHash: hashPhone(phone),
+      phoneEncrypted: encrypt(phone),
+      name: o.name ?? `Worker ${phoneCounter}`,
+      worker: {
+        create: {
+          region: o.region ?? 'Kigali',
+          city: o.city ?? 'Gasabo',
+          bio: o.bio === undefined ? 'Experienced technician' : o.bio,
+          photoUrl: o.photoUrl === undefined ? '/uploads/profile/x.webp' : o.photoUrl,
+          shareContact: o.shareContact ?? false,
+          ratingAverage: rating,
+          ratingCount: o.ratingCount ?? (rating === null ? 0 : 3),
+          skills: {
+            create: { skillTypeId: skillType.id, isMain: true, status: o.status ?? 'VERIFIED', yearsOfExperience: o.years ?? 5 },
+          },
+        },
+      },
+    },
+  });
+  return { id: user.id, phone };
+}
+
 // Creates an admin directly in the DB and returns a ready-made access token (login is covered in auth tests).
 export async function createAdmin(phone = '+250780000002') {
   const user = await prisma.user.create({
