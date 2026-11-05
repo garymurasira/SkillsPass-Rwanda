@@ -1,5 +1,6 @@
 import { prisma } from '../src/shared/prisma';
 import { encrypt, hashPhone, normalizePhone } from '../src/shared/crypto';
+import { generateTotpSecret, otpauthUrl } from '../src/shared/totp';
 
 const skillTypes = [
   { slug: 'electrician', nameEn: 'Electrician', nameRw: 'Umukozi w\'amashanyarazi', nameFr: 'Électricien' },
@@ -32,6 +33,18 @@ async function main() {
       admin: { create: { secondFactorEnabled: false } },
     },
   });
+
+  // Admins must log in with a second factor (NFR 10), so enroll the dev admin once and print the secret.
+  const admin = await prisma.admin.findFirstOrThrow({ where: { user: { phoneHash: hashPhone(phone) } } });
+  if (!admin.totpSecretEncrypted) {
+    const secret = generateTotpSecret();
+    await prisma.admin.update({
+      where: { userId: admin.userId },
+      data: { secondFactorEnabled: true, totpSecretEncrypted: encrypt(secret) },
+    });
+    console.log(`Dev admin authenticator secret (add to an authenticator app): ${secret}`);
+    console.log(otpauthUrl(secret, phone));
+  }
 
   console.log(`Seeded ${skillTypes.length} skill types and dev admin (${phone}).`);
 }
