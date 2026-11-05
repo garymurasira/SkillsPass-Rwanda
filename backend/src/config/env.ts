@@ -9,6 +9,8 @@ const schema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   DATA_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex chars (32 bytes)'),
   PHONE_HASH_KEY: z.string().min(8),
+  // Interactive API docs at /api/docs. On by default except in production.
+  ENABLE_DOCS: z.enum(['true', 'false']).optional(),
   UPLOAD_DIR: z.string().default('uploads'),
   SMS_PROVIDER: z.enum(['console']).default('console'),
 });

@@ -22,6 +22,7 @@ authRouter.use(
     limit: 40,
     standardHeaders: true,
     legacyHeaders: false,
+    message: { error: { code: 'RATE_LIMITED' } },
     skip: () => env.NODE_ENV === 'test',
   }),
 );

@@ -23,6 +23,7 @@ const sendLimiter = rateLimit({
   limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED' } },
   keyGenerator: (req) => req.auth!.userId,
   skip: () => env.NODE_ENV === 'test',
 });

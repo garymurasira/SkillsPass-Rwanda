@@ -1,0 +1,1524 @@
+openapi: 3.0.3
+info:
+  title: SkillsPass Rwanda API
+  version: 1.0.0
+  description: |
+    Backend for SkillsPass Rwanda (MVP): a skills portfolio and verification platform that lets informal
+    workers prove their skills and lets employers find verified workers.
+
+    ## Authentication
+    There are no passwords. Users sign in with an SMS one-time password (OTP).
+
+    1. **Sign up:** `POST /auth/register` (sends an OTP) then `POST /auth/register/verify` (creates the account).
+    2. **Sign in:** `POST /auth/login` (sends an OTP) then `POST /auth/login/verify`.
+    3. Both verify calls return an `accessToken` (15 minutes) and a `refreshToken` (30 days, single use).
+       Send the access token as `Authorization: Bearer <token>`.
+    4. When the access token expires call `POST /auth/refresh`. Each refresh token works once: the response contains a new pair.
+
+    **Admins** additionally send `totpCode` (authenticator app code) with `POST /auth/login/verify`.
+
+    In development the OTP is printed in the server console instead of being sent by SMS.
+
+    ## Roles
+    `WORKER`, `EMPLOYER`, `ADMIN`. Each operation lists the role(s) allowed. Calling with the wrong role returns `403 FORBIDDEN`.
+
+    ## Phone numbers
+    Rwandan mobile numbers in any common format (`0788123456`, `250788123456`, `+250 788 123 456`).
+    They are normalised to `+2507XXXXXXXX`.
+
+    ## Errors
+    Every error has the same shape. Clients should translate based on `error.code` (Kinyarwanda, English, French).
+
+    ```json
+    { "error": { "code": "PHONE_TAKEN" } }
+    ```
+    `VALIDATION_ERROR` also carries `details` with the messages per field. Codes used by the API:
+
+    | Area | Codes |
+    |---|---|
+    | General | `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`, `RATE_LIMITED`, `UNAUTHENTICATED`, `INVALID_TOKEN`, `FORBIDDEN` |
+    | Auth | `PHONE_TAKEN`, `USER_NOT_FOUND`, `OTP_TOO_SOON`, `OTP_INVALID`, `OTP_LOCKED`, `ADMIN_2FA_NOT_ENROLLED`, `TOTP_REQUIRED`, `TOTP_INVALID`, `INVALID_REFRESH_TOKEN` |
+    | Profile | `PROFILE_NOT_FOUND`, `SKILL_TYPE_NOT_FOUND`, `SKILL_EXISTS`, `SKILL_NOT_FOUND`, `CANNOT_DELETE_MAIN_SKILL`, `PORTFOLIO_FULL`, `PHOTO_NOT_FOUND`, `PHOTO_REQUIRED`, `INVALID_IMAGE`, `IMAGE_TOO_COMPLEX`, `FILE_TOO_LARGE`, `UPLOAD_ERROR`, `NO_PENDING_PHONE` |
+    | Verification | `NO_MAIN_SKILL`, `ALREADY_VERIFIED`, `ROUND_OPEN`, `REFERENCE_IS_SELF`, `ROUND_NOT_FOUND`, `REFERENCE_NOT_FOUND`, `ROUND_CLOSED` |
+    | Search | `WORKER_NOT_FOUND` |
+    | Jobs & ratings | `JOB_ALREADY_OPEN`, `JOB_NOT_FOUND`, `ALREADY_MARKED`, `NOT_MARKED_BY_EMPLOYER`, `ALREADY_CONFIRMED`, `JOB_NOT_COMPLETED`, `ALREADY_RATED` |
+    | Messaging | `CANNOT_MESSAGE_SELF`, `RECIPIENT_NOT_FOUND`, `REPLY_ONLY`, `PEER_NOT_FOUND` |
+
+    ## Images
+    Uploaded photos are re-encoded to WebP (under 500 KB) and served as static files. Image fields such as
+    `photoUrl` are paths like `/uploads/profile/<id>.webp`, relative to the server origin (not under `/api`).
+
+    ## Pagination
+    List endpoints take `limit` (default 20, max 50) and `offset`, and return `total`, `limit`, `offset`.
+    Message threads use cursors instead (see `GET /messages/with/{userId}`).
+  contact:
+    name: Gary Murasira
+servers:
+  - url: /api
+    description: This server
+tags:
+  - name: Health
+  - name: Auth
+    description: Sign up, sign in and tokens
+  - name: Worker profile
+    description: Worker details, skills and photos
+  - name: Employer profile
+  - name: Verification
+    description: Reference-based skill verification (workers submit, admins record results)
+  - name: Search
+    description: Employers find verified workers and keep favorites
+  - name: Jobs
+    description: Job completion workflow
+  - name: Ratings
+  - name: Messaging
+    description: In-app text messages between employers and workers
+  - name: Admin
+    description: Verifier tools (ADMIN role)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      security: []
+      responses:
+        '200':
+          description: The service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  # ───────────────────────── Auth ─────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Start sign-up and text an OTP
+      description: |
+        Validates the details and sends an OTP. **No account is created until the OTP is verified**
+        with `POST /auth/register/verify`. A new code can be requested after 60 seconds.
+        `ADMIN` accounts cannot be created here.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/RegisterWorker'
+                - $ref: '#/components/schemas/RegisterEmployer'
+              discriminator:
+                propertyName: role
+                mapping:
+                  WORKER: '#/components/schemas/RegisterWorker'
+                  EMPLOYER: '#/components/schemas/RegisterEmployer'
+      responses:
+        '202': { $ref: '#/components/responses/OtpSent' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/register/verify:
+    post:
+      tags: [Auth]
+      summary: Confirm the OTP and create the account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PhoneAndCode' }
+      responses:
+        '201':
+          description: Account created and signed in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Request a sign-in OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { $ref: '#/components/schemas/Phone' }
+      responses:
+        '202': { $ref: '#/components/responses/OtpSent' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/login/verify:
+    post:
+      tags: [Auth]
+      summary: Confirm the OTP and sign in
+      description: |
+        Admins must also send `totpCode`. An admin whose authenticator is not set up yet gets `403 ADMIN_2FA_NOT_ENROLLED`.
+        A wrong OTP counts against a limit of 5 attempts per code (`OTP_LOCKED` afterwards).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { $ref: '#/components/schemas/Phone' }
+                code: { $ref: '#/components/schemas/OtpCode' }
+                totpCode:
+                  type: string
+                  description: 6-digit authenticator code (admins only)
+                  example: '123456'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new token pair
+      description: |
+        Refresh tokens are single use. Presenting one that was already used is treated as theft and
+        **revokes every session** of that user.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: New tokens
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Signed out }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: The signed-in user
+      responses:
+        '200':
+          description: The current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicUser' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me/language:
+    patch:
+      tags: [Auth]
+      summary: Switch interface language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language]
+              properties:
+                language: { $ref: '#/components/schemas/Language' }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicUser' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────── Profile ─────────────────────────
+  /skill-types:
+    get:
+      tags: [Worker profile]
+      summary: Skills for the dropdown
+      description: Public. Names are given in all three languages.
+      security: []
+      responses:
+        '200':
+          description: All skill types
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SkillType' }
+
+  /workers/me:
+    get:
+      tags: [Worker profile]
+      summary: My worker profile
+      description: |
+        **Role: WORKER.** Includes `profileComplete`, the list of `missing` parts (`mainSkill`, `photo`, `bio`),
+        and `visibleToEmployers` (true only when complete **and** the main skill is verified).
+      responses:
+        '200':
+          description: The profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Worker profile]
+      summary: Update my details
+      description: '**Role: WORKER.** Send only the fields to change. An empty `bio` clears it.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                region: { type: string, example: Kigali }
+                city: { type: string, example: Gasabo }
+                bio: { type: string, nullable: true, maxLength: 300 }
+                shareContact:
+                  type: boolean
+                  description: If true, employers viewing the profile can see the worker's phone number.
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /workers/me/main-skill:
+    put:
+      tags: [Worker profile]
+      summary: Set or change the main skill
+      description: |
+        **Role: WORKER.** Only the main skill can be verified and searched.
+        - Same skill, different years: a **verified** skill stays verified but is flagged for admin review.
+        - Different skill: verification resets to `PENDING`, any open reference round is closed, the old main skill
+          becomes an "other skill", and 3 new references are needed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skillTypeId, yearsOfExperience]
+              properties:
+                skillTypeId: { type: string }
+                yearsOfExperience: { type: integer, minimum: 0, maximum: 60 }
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /workers/me/other-skills:
+    post:
+      tags: [Worker profile]
+      summary: Add an other (unverified) skill
+      description: '**Role: WORKER.** Shown to employers as "Other skills (not verified)". Not searchable.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [skillTypeId]
+              properties:
+                skillTypeId: { type: string }
+                yearsOfExperience: { type: integer, minimum: 0, maximum: 60, default: 0 }
+      responses:
+        '201':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /workers/me/other-skills/{skillId}:
+    delete:
+      tags: [Worker profile]
+      summary: Remove an other skill
+      description: '**Role: WORKER.** The main skill cannot be removed (`409 CANNOT_DELETE_MAIN_SKILL`).'
+      parameters:
+        - { name: skillId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /workers/me/photo:
+    put:
+      tags: [Worker profile]
+      summary: Set the profile picture
+      description: '**Role: WORKER.** Multipart upload, field name `photo`. Max 8 MB; stored as WebP under 500 KB with location metadata removed.'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/PhotoUpload' }
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+
+  /workers/me/portfolio:
+    post:
+      tags: [Worker profile]
+      summary: Add a portfolio photo
+      description: '**Role: WORKER.** Multipart upload, field name `photo`. At most 12 photos (`409 PORTFOLIO_FULL`).'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/PhotoUpload' }
+      responses:
+        '201':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+
+  /workers/me/portfolio/{photoId}:
+    delete:
+      tags: [Worker profile]
+      summary: Delete a portfolio photo
+      description: '**Role: WORKER.**'
+      parameters:
+        - { name: photoId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /employers/me:
+    get:
+      tags: [Employer profile]
+      summary: My employer profile
+      description: '**Role: EMPLOYER.**'
+      responses:
+        '200':
+          description: The profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Employer profile]
+      summary: Update company details
+      description: '**Role: EMPLOYER.** Send only the fields to change.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                companyName: { type: string }
+                region: { type: string }
+                city: { type: string }
+                contactInfo: { type: string }
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmployerProfile' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /me/phone/change:
+    post:
+      tags: [Auth]
+      summary: Start changing my phone number
+      description: |
+        **Any signed-in user.** Sends an OTP to the **new** number. The old number stays in use until
+        `POST /me/phone/confirm` succeeds. The new number appears as `pendingPhone` on the profile meanwhile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { $ref: '#/components/schemas/Phone' }
+      responses:
+        '202': { $ref: '#/components/responses/OtpSent' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /me/phone/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirm the new phone number
+      description: '**Any signed-in user.**'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { $ref: '#/components/schemas/OtpCode' }
+      responses:
+        '200':
+          description: The number is now active
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phone: { type: string, example: '+250733000111' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ───────────────────────── Verification ─────────────────────────
+  /workers/me/references:
+    post:
+      tags: [Verification]
+      summary: Submit 3 references for the main skill
+      description: |
+        **Role: WORKER.** Exactly 3 references with different phone numbers, none of them the worker's own.
+        Opens a verification round. After a failed round the worker may submit a new set (a new round; history is kept).
+        Not allowed while a round is open (`ROUND_OPEN`) or once the skill is verified (`ALREADY_VERIFIED`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [references]
+              properties:
+                references:
+                  type: array
+                  minItems: 3
+                  maxItems: 3
+                  items: { $ref: '#/components/schemas/ReferenceInput' }
+      responses:
+        '201':
+          description: Verification status including the new round
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationStatus' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /workers/me/verification:
+    get:
+      tags: [Verification]
+      summary: My verification status and history
+      description: '**Role: WORKER.** Reference phone numbers are not returned.'
+      responses:
+        '200':
+          description: Status and rounds (newest first)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/verifications:
+    get:
+      tags: [Admin]
+      summary: List verification rounds
+      description: '**Role: ADMIN.** Oldest first. Includes decrypted reference phone numbers so the verifier can call them.'
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, VERIFIED, NOT_VERIFIED], default: OPEN }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Rounds
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AdminRound' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/verifications/{roundId}:
+    get:
+      tags: [Admin]
+      summary: One verification round
+      description: '**Role: ADMIN.**'
+      parameters:
+        - { name: roundId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The round
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminRound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/references/{referenceId}/result:
+    post:
+      tags: [Admin]
+      summary: Record what a reference said
+      description: |
+        **Role: ADMIN.** Stores the result with the admin's id and the time, then recomputes the round:
+        - 2 or more `CONFIRMED` makes the round and the skill `VERIFIED`.
+        - As soon as 2 confirmations are no longer possible the round and the skill become `NOT_VERIFIED`.
+        - Otherwise the round stays `OPEN`. A result can be corrected while the round is open; after it closes
+          the call returns `409 ROUND_CLOSED`.
+      parameters:
+        - { name: referenceId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [result]
+              properties:
+                result: { type: string, enum: [CONFIRMED, NOT_CONFIRMED, UNREACHABLE] }
+      responses:
+        '200':
+          description: The round after the update
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminRound' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/flagged-skills:
+    get:
+      tags: [Admin]
+      summary: Verified skills waiting for review
+      description: |
+        **Role: ADMIN.** Skills whose years of experience changed after verification. They stay verified but are
+        flagged until an admin clears the flag.
+      responses:
+        '200':
+          description: Flagged skills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    worker:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                    skill: { type: string, example: Solar technician }
+                    yearsOfExperience: { type: integer }
+                    status: { $ref: '#/components/schemas/SkillStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/skills/{skillId}/clear-flag:
+    post:
+      tags: [Admin]
+      summary: Clear a skill's review flag
+      description: '**Role: ADMIN.**'
+      parameters:
+        - { name: skillId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Flag cleared }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────────────────── Search ─────────────────────────
+  /workers:
+    get:
+      tags: [Search]
+      summary: Search verified workers
+      description: |
+        **Role: EMPLOYER.** Only workers with a complete profile **and** a verified main skill appear.
+        Only the main skill is searchable. Results are best rated first (unrated last).
+        `region` and `city` ignore case. `minRating` excludes unrated workers.
+      parameters:
+        - name: skill
+          in: query
+          description: Skill slug (e.g. `solar-technician`) or skill type id
+          schema: { type: string }
+        - { name: region, in: query, schema: { type: string, example: Kigali } }
+        - { name: city, in: query, schema: { type: string, example: Gasabo } }
+        - name: minRating
+          in: query
+          schema: { type: number, minimum: 1, maximum: 5 }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: A page of worker cards
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerCardPage' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /workers/{id}:
+    get:
+      tags: [Search]
+      summary: A worker's profile as employers see it
+      description: |
+        **Role: EMPLOYER.** Workers who are not visible (not verified, incomplete profile) return `404`.
+        The phone number is `null` unless the worker turned on `shareContact`.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The worker
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerPublicProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /favorites:
+    get:
+      tags: [Search]
+      summary: My saved workers
+      description: |
+        **Role: EMPLOYER.** Workers who stop being visible drop out of this list but stay saved,
+        and reappear if they become visible again.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: A page of worker cards
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerCardPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /favorites/{workerId}:
+    put:
+      tags: [Search]
+      summary: Save a worker
+      description: '**Role: EMPLOYER.** Safe to call twice. The worker must be visible.'
+      parameters:
+        - { name: workerId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Saved }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Search]
+      summary: Remove a saved worker
+      description: '**Role: EMPLOYER.**'
+      parameters:
+        - { name: workerId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ───────────────────────── Jobs & ratings ─────────────────────────
+  /jobs:
+    post:
+      tags: [Jobs]
+      summary: Start a job with a worker
+      description: |
+        **Role: EMPLOYER.** The worker must be visible. Only one unfinished job may exist per employer/worker pair
+        (`409 JOB_ALREADY_OPEN`). Jobs themselves are arranged offline; this starts the completion workflow.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workerId]
+              properties:
+                workerId: { type: string }
+      responses:
+        '201':
+          description: The job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Jobs]
+      summary: List my jobs
+      description: '**Role: EMPLOYER or WORKER.** Each side sees only their own jobs, newest first.'
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/JobStatus' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: A page of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Job' }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: One job
+      description: '**Role: EMPLOYER or WORKER**, and a participant of the job (others get `404`).'
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /jobs/{id}/complete:
+    post:
+      tags: [Jobs]
+      summary: Mark a job completed (employer) or confirm it (worker)
+      description: |
+        Two steps on one endpoint:
+        1. The **employer** calls it: `IN_PROGRESS` becomes `EMPLOYER_MARKED`.
+        2. The **worker** calls it: `EMPLOYER_MARKED` becomes `COMPLETED`.
+
+        Out-of-order or repeated calls return `409` (`NOT_MARKED_BY_EMPLOYER`, `ALREADY_MARKED`, `ALREADY_CONFIRMED`).
+        The employer can rate only once the job is `COMPLETED` (`canRate` is true).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The updated job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /ratings:
+    post:
+      tags: [Ratings]
+      summary: Rate a worker for a completed job
+      description: |
+        **Role: EMPLOYER**, and only for their own job that the worker has confirmed. One rating per job.
+        Also updates the worker's average and count used by search.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jobId, stars]
+              properties:
+                jobId: { type: string }
+                stars: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string, maxLength: 200, description: 'Optional. Trimmed; an empty comment is stored as null.' }
+      responses:
+        '201':
+          description: The rating
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  jobId: { type: string }
+                  stars: { type: integer }
+                  comment: { type: string, nullable: true }
+                  createdAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /workers/me/ratings:
+    get:
+      tags: [Ratings]
+      summary: My rating and customer feedback
+      description: '**Role: WORKER.**'
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Average, count and feedback (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  average: { type: number, nullable: true, example: 4.5 }
+                  count: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Review' }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ───────────────────────── Messaging ─────────────────────────
+  /messages:
+    post:
+      tags: [Messaging]
+      summary: Send a message
+      description: |
+        **Role: EMPLOYER or WORKER.** Text only, 1 to 1000 characters.
+        - An **employer** can message only workers who appear in search (`404 RECIPIENT_NOT_FOUND` otherwise).
+        - A **worker** can only reply to an employer who has already messaged them (`403 REPLY_ONLY`).
+
+        Limited to 30 messages per minute per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipientId, content]
+              properties:
+                recipientId: { type: string }
+                content: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '201':
+          description: The sent message
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    get:
+      tags: [Messaging]
+      summary: Conversation list
+      description: '**Role: EMPLOYER or WORKER.** One entry per person, most recent first.'
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: A page of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Conversation' }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /messages/unread-count:
+    get:
+      tags: [Messaging]
+      summary: Number of unread messages (for the badge)
+      description: '**Role: EMPLOYER or WORKER.**'
+      responses:
+        '200':
+          description: The count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unread: { type: integer, example: 3 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /messages/with/{userId}:
+    get:
+      tags: [Messaging]
+      summary: The conversation with one person
+      description: |
+        **Role: EMPLOYER or WORKER.** Messages are returned oldest to newest. Opening a thread marks the
+        **returned** messages you received as read.
+
+        - No cursor: the latest `limit` messages.
+        - `before=<seq>`: the page of older messages before that message.
+        - `after=<cursor>`: only messages newer than the cursor. Use this to poll: pass the `cursor` from the
+          previous response. An empty result keeps the same cursor.
+        `before` and `after` cannot be combined.
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string } }
+        - { name: before, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: after, in: query, schema: { type: integer, minimum: 0 } }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: The thread
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Thread' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+
+  responses:
+    OtpSent:
+      description: An OTP was sent by SMS
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string, example: OTP_SENT }
+    ValidationError:
+      description: Invalid input (`VALIDATION_ERROR`), or a business-rule failure such as `REFERENCE_IS_SELF`, `OTP_INVALID`, `INVALID_IMAGE`
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing, invalid or expired credentials (`UNAUTHENTICATED`, `INVALID_TOKEN`, `INVALID_REFRESH_TOKEN`, `TOTP_REQUIRED`, `TOTP_INVALID`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: The role is not allowed (`FORBIDDEN`) or the action is not permitted (`REPLY_ONLY`, `ADMIN_2FA_NOT_ENROLLED`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found, or not visible to you (`*_NOT_FOUND`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: The request conflicts with the current state (for example `PHONE_TAKEN`, `ROUND_OPEN`, `ALREADY_RATED`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PayloadTooLarge:
+      description: Upload larger than 8 MB (`FILE_TOO_LARGE`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Rate limit or OTP limit reached (`RATE_LIMITED`, `OTP_TOO_SOON`, `OTP_LOCKED`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: { type: string, example: PHONE_TAKEN }
+            message: { type: string }
+            details:
+              type: object
+              description: Field-level messages, present on `VALIDATION_ERROR`
+              additionalProperties:
+                type: array
+                items: { type: string }
+
+    Phone:
+      type: string
+      description: Rwandan mobile number in any common format
+      example: '0788123456'
+    OtpCode:
+      type: string
+      pattern: '^\d{6}$'
+      example: '123456'
+    Role:
+      type: string
+      enum: [WORKER, EMPLOYER, ADMIN]
+    Language:
+      type: string
+      enum: [RW, EN, FR]
+    SkillStatus:
+      type: string
+      enum: [PENDING, VERIFIED, NOT_VERIFIED]
+    JobStatus:
+      type: string
+      enum: [IN_PROGRESS, EMPLOYER_MARKED, COMPLETED]
+
+    RegisterWorker:
+      type: object
+      required: [role, phone, name, region, city]
+      properties:
+        role: { type: string, enum: [WORKER] }
+        phone: { $ref: '#/components/schemas/Phone' }
+        name: { type: string, minLength: 2, maxLength: 100, example: Jean Mugabo }
+        language: { allOf: [{ $ref: '#/components/schemas/Language' }], default: RW }
+        region: { type: string, example: Kigali }
+        city: { type: string, example: Gasabo }
+    RegisterEmployer:
+      type: object
+      required: [role, phone, name, companyName, region, city, contactInfo]
+      properties:
+        role: { type: string, enum: [EMPLOYER] }
+        phone: { $ref: '#/components/schemas/Phone' }
+        name: { type: string, minLength: 2, maxLength: 100, example: Marie Uwase }
+        language: { allOf: [{ $ref: '#/components/schemas/Language' }], default: RW }
+        companyName: { type: string, example: BrightHomes Ltd }
+        region: { type: string, example: Kigali }
+        city: { type: string, example: Nyarugenge }
+        contactInfo: { type: string, example: info@brighthomes.rw }
+
+    PhoneAndCode:
+      type: object
+      required: [phone, code]
+      properties:
+        phone: { $ref: '#/components/schemas/Phone' }
+        code: { $ref: '#/components/schemas/OtpCode' }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    TokenPair:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: Access token lifetime in seconds, example: 900 }
+    PublicUser:
+      type: object
+      properties:
+        id: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        name: { type: string }
+        language: { $ref: '#/components/schemas/Language' }
+    AuthResult:
+      allOf:
+        - $ref: '#/components/schemas/TokenPair'
+        - type: object
+          properties:
+            user: { $ref: '#/components/schemas/PublicUser' }
+
+    SkillType:
+      type: object
+      properties:
+        id: { type: string }
+        slug: { type: string, example: solar-technician }
+        nameEn: { type: string, example: Solar technician }
+        nameRw: { type: string }
+        nameFr: { type: string, example: Technicien solaire }
+    SkillView:
+      type: object
+      properties:
+        id: { type: string }
+        skillType: { $ref: '#/components/schemas/SkillType' }
+        yearsOfExperience: { type: integer }
+        status: { $ref: '#/components/schemas/SkillStatus' }
+        flaggedForReview: { type: boolean }
+    PortfolioPhoto:
+      type: object
+      properties:
+        id: { type: string }
+        url: { type: string, example: /uploads/portfolio/3f2a.webp }
+        uploadedAt: { type: string, format: date-time }
+    PhotoUpload:
+      type: object
+      required: [photo]
+      properties:
+        photo: { type: string, format: binary, description: 'JPEG, PNG or WebP, up to 8 MB' }
+
+    WorkerProfile:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string, description: The worker's own number }
+        pendingPhone: { type: string, nullable: true, description: A new number awaiting OTP confirmation }
+        language: { $ref: '#/components/schemas/Language' }
+        region: { type: string }
+        city: { type: string }
+        bio: { type: string, nullable: true }
+        photoUrl: { type: string, nullable: true }
+        shareContact: { type: boolean }
+        mainSkill:
+          allOf: [{ $ref: '#/components/schemas/SkillView' }]
+          nullable: true
+        otherSkills:
+          type: array
+          description: Shown to employers as "Other skills (not verified)"
+          items: { $ref: '#/components/schemas/SkillView' }
+        portfolio:
+          type: array
+          items: { $ref: '#/components/schemas/PortfolioPhoto' }
+        profileComplete: { type: boolean }
+        missing:
+          type: array
+          items: { type: string, enum: [mainSkill, photo, bio] }
+        visibleToEmployers: { type: boolean }
+    EmployerProfile:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string }
+        pendingPhone: { type: string, nullable: true }
+        language: { $ref: '#/components/schemas/Language' }
+        companyName: { type: string }
+        region: { type: string }
+        city: { type: string }
+        contactInfo: { type: string }
+
+    ReferenceInput:
+      type: object
+      required: [name, phone, relationship]
+      properties:
+        name: { type: string, example: Mrs. Uwase }
+        phone: { $ref: '#/components/schemas/Phone' }
+        relationship: { type: string, example: customer }
+    VerificationStatus:
+      type: object
+      properties:
+        mainSkill:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            skillType: { $ref: '#/components/schemas/SkillType' }
+            yearsOfExperience: { type: integer }
+        status:
+          allOf: [{ $ref: '#/components/schemas/SkillStatus' }]
+          nullable: true
+        flaggedForReview: { type: boolean }
+        canSubmit:
+          type: boolean
+          description: True when the worker may submit a new set of references
+        rounds:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              roundNumber: { type: integer }
+              status: { type: string, enum: [OPEN, VERIFIED, NOT_VERIFIED] }
+              createdAt: { type: string, format: date-time }
+              closedAt: { type: string, format: date-time, nullable: true }
+              references:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    relationship: { type: string }
+                    result: { $ref: '#/components/schemas/ReferenceResult' }
+                    recordedAt: { type: string, format: date-time, nullable: true }
+    ReferenceResult:
+      type: string
+      enum: [PENDING, CONFIRMED, NOT_CONFIRMED, UNREACHABLE]
+    AdminRound:
+      type: object
+      properties:
+        id: { type: string }
+        roundNumber: { type: integer }
+        status: { type: string, enum: [OPEN, VERIFIED, NOT_VERIFIED] }
+        createdAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+        worker:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            region: { type: string }
+            city: { type: string }
+        skill:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            yearsOfExperience: { type: integer }
+            status: { $ref: '#/components/schemas/SkillStatus' }
+        references:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              phone: { type: string, description: Decrypted for the verifier to call }
+              relationship: { type: string }
+              result: { $ref: '#/components/schemas/ReferenceResult' }
+              recordedById: { type: string, nullable: true }
+              recordedAt: { type: string, format: date-time, nullable: true }
+
+    RatingSummary:
+      type: object
+      properties:
+        average: { type: number, nullable: true, description: 'One decimal place; null when unrated', example: 4.5 }
+        count: { type: integer }
+    Review:
+      type: object
+      properties:
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        employer: { type: string, description: Company name, example: BrightHomes Ltd }
+    WorkerCard:
+      type: object
+      description: A search result. Never contains a phone number.
+      properties:
+        id: { type: string }
+        name: { type: string }
+        photoUrl: { type: string, nullable: true }
+        region: { type: string }
+        city: { type: string }
+        mainSkill:
+          type: object
+          properties:
+            slug: { type: string }
+            nameEn: { type: string }
+            nameRw: { type: string }
+            nameFr: { type: string }
+            yearsOfExperience: { type: integer }
+            verified: { type: boolean }
+        rating: { $ref: '#/components/schemas/RatingSummary' }
+        isFavorite: { type: boolean }
+    WorkerCardPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/WorkerCard' }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    WorkerPublicProfile:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        photoUrl: { type: string, nullable: true }
+        region: { type: string }
+        city: { type: string }
+        bio: { type: string, nullable: true }
+        mainSkill:
+          type: object
+          properties:
+            skillType: { $ref: '#/components/schemas/SkillType' }
+            yearsOfExperience: { type: integer }
+            verified: { type: boolean }
+        otherSkills:
+          type: array
+          items:
+            type: object
+            properties:
+              skillType: { $ref: '#/components/schemas/SkillType' }
+              yearsOfExperience: { type: integer }
+        otherSkillsNote: { type: string, example: NOT_VERIFIED }
+        portfolio:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              url: { type: string }
+        rating: { $ref: '#/components/schemas/RatingSummary' }
+        reviews:
+          type: array
+          description: Up to the 50 most recent ratings
+          items: { $ref: '#/components/schemas/Review' }
+        phone: { type: string, nullable: true, description: Only when the worker allows sharing }
+        isFavorite: { type: boolean }
+
+    Job:
+      type: object
+      properties:
+        id: { type: string }
+        status: { $ref: '#/components/schemas/JobStatus' }
+        createdAt: { type: string, format: date-time }
+        employerMarkedAt: { type: string, format: date-time, nullable: true }
+        workerConfirmedAt: { type: string, format: date-time, nullable: true }
+        worker:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+        employer:
+          type: object
+          properties:
+            id: { type: string }
+            companyName: { type: string }
+        rating:
+          type: object
+          nullable: true
+          properties:
+            stars: { type: integer }
+            comment: { type: string, nullable: true }
+            createdAt: { type: string, format: date-time }
+        canRate:
+          type: boolean
+          description: True when the job is completed and not yet rated (show the Rate button)
+
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        seq: { type: integer, description: Increasing sequence number used as the paging cursor }
+        content: { type: string }
+        sentAt: { type: string, format: date-time }
+        fromMe: { type: boolean }
+        readAt: { type: string, format: date-time, nullable: true }
+    PeerSummary:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        photoUrl: { type: string, nullable: true, description: Workers only }
+        companyName: { type: string, nullable: true, description: Employers only }
+    Conversation:
+      type: object
+      properties:
+        peer: { $ref: '#/components/schemas/PeerSummary' }
+        lastMessage:
+          type: object
+          properties:
+            content: { type: string }
+            sentAt: { type: string, format: date-time }
+            fromMe: { type: boolean }
+        unreadCount: { type: integer }
+    Thread:
+      type: object
+      properties:
+        peer: { $ref: '#/components/schemas/PeerSummary' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+        hasMore:
+          type: boolean
+          description: More messages exist in the direction you are paging
+        cursor:
+          type: integer
+          nullable: true
+          description: Pass as `after` on the next poll
