@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Enums ─────────────
+
+enum Role {
+  WORKER
+  EMPLOYER
+  ADMIN
+}
+
+enum Language {
+  RW
+  EN
+  FR
+}
+
+// Only the worker's main skill is ever verified in the MVP (FR 2.1, FR 3.4).
+enum SkillStatus {
+  PENDING
+  VERIFIED
+  NOT_VERIFIED
+}
+
+enum RoundStatus {
+  OPEN
+  VERIFIED
+  NOT_VERIFIED
+}
+
+enum ReferenceResult {
+  PENDING
+  CONFIRMED
+  NOT_CONFIRMED
+  UNREACHABLE
+}
+
+// PROPOSED -> employer marked done -> worker confirmed (COMPLETED). Rating allowed only when COMPLETED (BR 3).
+enum JobStatus {
+  IN_PROGRESS
+  EMPLOYER_MARKED
+  COMPLETED
+}
+
+// ───────────── Users & auth ─────────────
+
+// Phone numbers are stored twice: a keyed hash for login lookup and an AES-GCM ciphertext for display (NFR 8).
+model User {
+  id                    String   @id @default(uuid())
+  role                  Role
+  phoneHash             String   @unique
+  phoneEncrypted        String
+  pendingPhoneHash      String? // BR 4(d): new number applies only after OTP confirmation
+  pendingPhoneEncrypted String?
+  name                  String
+  language              Language @default(RW)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  worker   Worker?
+  employer Employer?
+  admin    Admin?
+
+  sentMessages     Message[]      @relation("MessageSender")
+  receivedMessages Message[]      @relation("MessageReceiver")
+  refreshTokens    RefreshToken[]
+  recordedResults  Reference[]    @relation("RecordedBy")
+}
+
+model OtpCode {
+  id         String    @id @default(uuid())
+  phoneHash  String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phoneHash, createdAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Admin {
+  userId              String  @id
+  secondFactorEnabled Boolean @default(false)
+  totpSecretEncrypted String? // NFR 10: OTP + authenticator code
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Employer {
+  userId      String @id
+  companyName String
+  region      String
+  city        String
+  contactInfo String
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favorites Favorite[]
+  jobs      Job[]
+  ratings   Rating[]
+}
+
+model Worker {
+  userId       String  @id
+  region       String
+  city         String
+  bio          String? @db.VarChar(300) // FR 2.3
+  photoUrl     String?
+  shareContact Boolean @default(false) // BR 5: phone visible to others only if true
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills    Skill[]
+  photos    PortfolioPhoto[]
+  favoredBy Favorite[]
+  jobs      Job[]
+  ratings   Rating[]
+
+  @@index([region, city])
+}
+
+// ───────────── Skills & verification ─────────────
+
+// Controlled list behind the skill dropdown (electrician, plumber, ...), localized.
+model SkillType {
+  id     String @id @default(uuid())
+  slug   String @unique
+  nameEn String
+  nameRw String
+  nameFr String
+
+  skills Skill[]
+}
+
+model Skill {
+  id                String      @id @default(uuid())
+  workerId          String
+  skillTypeId       String
+  yearsOfExperience Int
+  isMain            Boolean     @default(false)
+  status            SkillStatus @default(PENDING)
+  flaggedForReview  Boolean     @default(false) // BR 4(b)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  worker    Worker              @relation(fields: [workerId], references: [userId], onDelete: Cascade)
+  skillType SkillType           @relation(fields: [skillTypeId], references: [id])
+  rounds    VerificationRound[]
+
+  @@unique([workerId, skillTypeId])
+  @@index([skillTypeId, status])
+}
+
+// One round = one set of 3 references. Resubmission (FR 3.5) creates a new round and keeps history.
+model VerificationRound {
+  id          String      @id @default(uuid())
+  skillId     String
+  roundNumber Int
+  status      RoundStatus @default(OPEN)
+  createdAt   DateTime    @default(now())
+  closedAt    DateTime?
+
+  skill      Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  references Reference[]
+
+  @@unique([skillId, roundNumber])
+}
+
+model Reference {
+  id             String          @id @default(uuid())
+  roundId        String
+  name           String
+  phoneEncrypted String
+  relationship   String
+  result         ReferenceResult @default(PENDING)
+  recordedById   String? // FR 3.3: which admin recorded the result
+  recordedAt     DateTime?
+
+  round      VerificationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  recordedBy User?             @relation("RecordedBy", fields: [recordedById], references: [id])
+
+  @@index([roundId])
+}
+
+model PortfolioPhoto {
+  id         String   @id @default(uuid())
+  workerId   String
+  url        String
+  uploadedAt DateTime @default(now())
+
+  worker Worker @relation(fields: [workerId], references: [userId], onDelete: Cascade)
+
+  @@index([workerId])
+}
+
+// ───────────── Employer features ─────────────
+
+model Favorite {
+  employerId String
+  workerId   String
+  createdAt  DateTime @default(now())
+
+  employer Employer @relation(fields: [employerId], references: [userId], onDelete: Cascade)
+  worker   Worker   @relation(fields: [workerId], references: [userId], onDelete: Cascade)
+
+  @@id([employerId, workerId])
+}
+
+// ───────────── Jobs & ratings ─────────────
+
+model Job {
+  id                String    @id @default(uuid())
+  employerId        String
+  workerId          String
+  status            JobStatus @default(IN_PROGRESS)
+  employerMarkedAt  DateTime?
+  workerConfirmedAt DateTime?
+  createdAt         DateTime  @default(now())
+
+  employer Employer @relation(fields: [employerId], references: [userId])
+  worker   Worker   @relation(fields: [workerId], references: [userId])
+  rating   Rating?
+
+  @@index([workerId, status])
+  @@index([employerId])
+}
+
+// jobId is unique: one rating per job (BR 3). stars 1-5 is enforced by a CHECK constraint added in the migration.
+model Rating {
+  id         String   @id @default(uuid())
+  jobId      String   @unique
+  workerId   String
+  employerId String
+  stars      Int
+  comment    String?  @db.VarChar(200) // FR 5.2
+  createdAt  DateTime @default(now())
+
+  job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker   Worker   @relation(fields: [workerId], references: [userId])
+  employer Employer @relation(fields: [employerId], references: [userId])
+
+  @@index([workerId, createdAt])
+}
+
+// ───────────── Messaging ─────────────
+
+model Message {
+  id         String    @id @default(uuid())
+  senderId   String
+  receiverId String
+  content    String
+  sentAt     DateTime  @default(now())
+  readAt     DateTime? // null = unread (FR 6.3)
+
+  sender   User @relation("MessageSender", fields: [senderId], references: [id])
+  receiver User @relation("MessageReceiver", fields: [receiverId], references: [id])
+
+  @@index([senderId, receiverId, sentAt])
+  @@index([receiverId, readAt])
+}
