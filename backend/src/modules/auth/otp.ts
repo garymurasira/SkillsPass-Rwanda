@@ -22,7 +22,7 @@ export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Pri
   if (recent) throw new AppError(429, 'OTP_TOO_SOON');
 
   const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-  await prisma.otpCode.create({
+  const otp = await prisma.otpCode.create({
     data: {
       phoneHash,
       purpose,
@@ -31,7 +31,14 @@ export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Pri
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     },
   });
-  await getSms().send(normalizePhone(phone), `Your SkillsPass code is ${code}. It expires in 5 minutes.`);
+  try {
+    await getSms().send(normalizePhone(phone), `Your SkillsPass code is ${code}. It expires in 5 minutes.`);
+  } catch (err) {
+    // The code never reached the user: drop it so the resend cooldown does not block an immediate retry.
+    await prisma.otpCode.delete({ where: { id: otp.id } }).catch(() => undefined);
+    console.error('SMS send failed:', err instanceof Error ? err.message : 'unknown error');
+    throw new AppError(502, 'SMS_SEND_FAILED');
+  }
 }
 
 // Validates and consumes the latest live code. A wrong guess counts against the attempt limit.

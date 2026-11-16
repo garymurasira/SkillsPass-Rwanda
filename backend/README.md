@@ -58,7 +58,7 @@ npm run dev                # http://localhost:3000, restarts on changes
 Check it: `curl http://localhost:3000/api/health` returns `{"status":"ok"}`.
 
 ### Trying the API by hand
-OTP codes are **printed in the server console** in development (no SMS provider is connected yet).
+With the default `SMS_PROVIDER=console`, OTP codes are **printed in the server console** instead of being texted.
 
 ```bash
 # 1. Start sign-up. Watch the server console for "[SMS -> +250788123456] Your SkillsPass code is 123456"
@@ -118,7 +118,8 @@ All settings are environment variables, checked at startup (the server refuses t
 | `DATA_ENCRYPTION_KEY` | 64 hex chars; AES-256-GCM key for phone numbers at rest | required |
 | `PHONE_HASH_KEY` | Key for the phone-number lookup hash and OTP hashes | required |
 | `UPLOAD_DIR` | Where photos are stored | `uploads` |
-| `SMS_PROVIDER` | `console` (prints OTPs) | `console` |
+| `SMS_PROVIDER` | `console` (prints OTPs) or `pindo` (real SMS) | `console` |
+| `PINDO_API_TOKEN` / `PINDO_SENDER_ID` | Pindo token and sender ID (max 11 chars); required when `SMS_PROVIDER=pindo` | none |
 | `ENABLE_DOCS` | `true` / `false`; Swagger UI at `/api/docs` | on, except in production |
 
 ## Project layout
@@ -218,8 +219,10 @@ workers against the 2-second search target. The suite takes about 1.5 minutes.
 
 ## Known limitations and next steps
 
-- **SMS:** OTPs are printed to the console. Add a real gateway (for example Africa's Talking) by implementing
-  `SmsProvider` in [`shared/sms.ts`](src/shared/sms.ts).
+- **SMS:** set `SMS_PROVIDER=pindo` (with `PINDO_API_TOKEN` and `PINDO_SENDER_ID`) to send real OTPs through
+  [Pindo](https://docs.pindo.ai/docs/messaging/overview). `PindoTest` is only Pindo's sample sender: register your own
+  sender ID (for example `SkillsPass`) before launch. If sending fails the API returns `502 SMS_SEND_FAILED` and the
+  code is discarded so the user can retry immediately.
 - **File storage:** photos go to local disk. For production implement `FileStorage` in
   [`shared/storage.ts`](src/shared/storage.ts) for S3-compatible object storage.
 - **Rate limiting** is in memory, so it resets on restart and is per instance. Use a shared store (e.g. Redis) when

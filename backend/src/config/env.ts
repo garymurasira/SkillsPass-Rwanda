@@ -12,7 +12,14 @@ const schema = z.object({
   // Interactive API docs at /api/docs. On by default except in production.
   ENABLE_DOCS: z.enum(['true', 'false']).optional(),
   UPLOAD_DIR: z.string().default('uploads'),
-  SMS_PROVIDER: z.enum(['console']).default('console'),
+  SMS_PROVIDER: z.enum(['console', 'pindo']).default('console'),
+  PINDO_API_TOKEN: z.string().min(1).optional(),
+  PINDO_SENDER_ID: z.string().min(1).max(11).optional(),
+}).superRefine((v, ctx) => {
+  if (v.SMS_PROVIDER !== 'pindo') return;
+  for (const key of ['PINDO_API_TOKEN', 'PINDO_SENDER_ID'] as const) {
+    if (!v[key]) ctx.addIssue({ code: 'custom', path: [key], message: `required when SMS_PROVIDER=pindo` });
+  }
 });
 
 const parsed = schema.safeParse(process.env);
