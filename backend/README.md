@@ -7,7 +7,7 @@ verified workers, message them, record completed jobs and rate the work.
 This is the MVP described in the project's Software Requirements Specification (SRS). Payments, job posting,
 push notifications and analytics are Phase 2 and are not included.
 
-- **Interactive API docs:** run the server and open <http://localhost:3000/api/docs>
+- **Interactive API docs:** run the server and open <http://localhost:4000/api/docs>
 - **OpenAPI file:** [docs/openapi.yaml](docs/openapi.yaml) (also served as JSON at `/api/openapi.json`)
 
 ## Stack
@@ -53,24 +53,24 @@ npm run prisma:seed        # skill types + a development admin account
 
 ### 4. Run
 ```bash
-npm run dev                # http://localhost:3000, restarts on changes
+npm run dev                # http://localhost:4000, restarts on changes
 ```
-Check it: `curl http://localhost:3000/api/health` returns `{"status":"ok"}`.
+Check it: `curl http://localhost:4000/api/health` returns `{"status":"ok"}`.
 
 ### Trying the API by hand
 With the default `SMS_PROVIDER=console`, OTP codes are **printed in the server console** instead of being texted.
 
 ```bash
 # 1. Start sign-up. Watch the server console for "[SMS -> +250788123456] Your SkillsPass code is 123456"
-curl -X POST localhost:3000/api/auth/register -H "content-type: application/json" \
+curl -X POST localhost:4000/api/auth/register -H "content-type: application/json" \
   -d '{"role":"WORKER","phone":"0788123456","name":"Jean Mugabo","region":"Kigali","city":"Gasabo"}'
 
 # 2. Confirm with the code: returns accessToken + refreshToken
-curl -X POST localhost:3000/api/auth/register/verify -H "content-type: application/json" \
+curl -X POST localhost:4000/api/auth/register/verify -H "content-type: application/json" \
   -d '{"phone":"0788123456","code":"123456"}'
 
 # 3. Use the token
-curl localhost:3000/api/workers/me -H "authorization: Bearer <accessToken>"
+curl localhost:4000/api/workers/me -H "authorization: Bearer <accessToken>"
 ```
 In Swagger UI (`/api/docs`) click **Authorize** and paste the access token to try every endpoint from the browser.
 
@@ -112,7 +112,7 @@ All settings are environment variables, checked at startup (the server refuses t
 | Variable | Purpose | Default |
 |---|---|---|
 | `NODE_ENV` | `development`, `test` or `production` | `development` |
-| `PORT` | HTTP port | `3000` |
+| `PORT` | HTTP port | `4000` |
 | `DATABASE_URL` | PostgreSQL connection string | required |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing / hashing secrets (32+ chars) | required |
 | `DATA_ENCRYPTION_KEY` | 64 hex chars; AES-256-GCM key for phone numbers at rest | required |
