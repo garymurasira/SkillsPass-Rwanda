@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidRwandanPhone } from "./phone";
+import { isValidRwandanPhone, normalizePhone } from "./phone";
 
 // Client-side mirrors of the backend rules (backend/src/modules/auth/schemas.ts), so people get
 // instant feedback. The server validates again and has the final say.
@@ -43,3 +43,36 @@ export function fieldErrors<T extends Record<string, unknown>>(
   }
   return out as Partial<Record<keyof T & string, string>>;
 }
+
+// ── References (FR 3.1: exactly three, each on a different phone number) ──
+
+export interface ReferenceDraft {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+export interface ReferenceErrors {
+  /** One entry per reference, with the first problem of each field. */
+  rows: { name?: string; phone?: string }[];
+  /** A problem with the set as a whole, e.g. the same number twice. */
+  form?: string;
+}
+
+export function referenceErrors(refs: ReferenceDraft[]): ReferenceErrors {
+  const rows = refs.map((r) => {
+    const row: { name?: string; phone?: string } = {};
+    const name = r.name.trim();
+    if (name.length < 2) row.name = "Please enter their name.";
+    else if (name.length > 100) row.name = "That name is too long.";
+    if (!isValidRwandanPhone(r.phone)) row.phone = "Enter a valid MTN or Airtel number, like 078 123 4567.";
+    return row;
+  });
+
+  const valid = refs.filter((_, i) => !rows[i]?.phone).map((r) => normalizePhone(r.phone));
+  const out: ReferenceErrors = { rows };
+  if (new Set(valid).size < valid.length) out.form = "Each person needs a different phone number.";
+  return out;
+}
+
+export const hasReferenceErrors = (e: ReferenceErrors) => !!e.form || e.rows.some((r) => r.name || r.phone);
