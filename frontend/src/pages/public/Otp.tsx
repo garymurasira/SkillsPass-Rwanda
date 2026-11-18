@@ -20,9 +20,11 @@ type OtpBodyProps = {
   /** Asks for a new code. Resolves with an error message, or null when it worked. */
   onResend?: () => Promise<string | null>;
   wrongNumberTo?: string;
+  /** Use instead of `wrongNumberTo` when "Wrong number?" should act in place (e.g. go back a step). */
+  onWrongNumber?: () => void;
 };
 
-export function OtpBody({ onDone, onSubmit, onResend, wrongNumberTo = "/login" }: OtpBodyProps) {
+export function OtpBody({ onDone, onSubmit, onResend, wrongNumberTo = "/login", onWrongNumber }: OtpBodyProps) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,7 +62,11 @@ export function OtpBody({ onDone, onSubmit, onResend, wrongNumberTo = "/login" }
         <button type="button" disabled={left > 0} onClick={() => void resend()} className="h-12 font-bold text-primary disabled:text-muted-foreground">
           {left > 0 ? `Resend code in ${left}s` : "Resend code"}
         </button>
-        <Link to={wrongNumberTo as "/"} className="flex h-12 items-center font-bold text-primary underline">Wrong number?</Link>
+        {onWrongNumber ? (
+          <button type="button" onClick={onWrongNumber} className="flex h-12 items-center font-bold text-primary underline">Wrong number?</button>
+        ) : (
+          <Link to={wrongNumberTo as "/"} className="flex h-12 items-center font-bold text-primary underline">Wrong number?</Link>
+        )}
       </div>
     </div>
   );
