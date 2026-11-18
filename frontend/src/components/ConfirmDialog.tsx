@@ -12,10 +12,12 @@ type Props = {
   confirmLabel: string;
   cancelLabel?: string;
   onConfirm: () => void;
+  /** Red for things that can't be undone. Use "default" for a plain yes. */
+  tone?: "destructive" | "default";
 };
 
 /** "Are you sure?" for anything that can't be undone with one tap. */
-export function ConfirmDialog({ open, onOpenChange, title, text, confirmLabel, cancelLabel = "Cancel", onConfirm }: Props) {
+export function ConfirmDialog({ open, onOpenChange, title, text, confirmLabel, cancelLabel = "Cancel", onConfirm, tone = "destructive" }: Props) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -25,7 +27,7 @@ export function ConfirmDialog({ open, onOpenChange, title, text, confirmLabel, c
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="h-12">{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction className="h-12 bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onConfirm}>
+          <AlertDialogAction className={tone === "destructive" ? "h-12 bg-destructive text-destructive-foreground hover:bg-destructive/90" : "h-12"} onClick={onConfirm}>
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
