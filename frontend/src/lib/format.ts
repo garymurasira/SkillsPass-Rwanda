@@ -18,3 +18,20 @@ export const formatDateTime = (iso: string | null | undefined): string => {
   const d = parse(iso);
   return d ? dateTime.format(d) : "—";
 };
+
+const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const dayAndTime = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** "14:05" for today, "12 Nov, 14:05" for earlier days. */
+export const formatMessageTime = (iso: string | null | undefined, now: Date = new Date()): string => {
+  const d = parse(iso);
+  if (!d) return "";
+  return d.toDateString() === now.toDateString() ? time.format(d) : dayAndTime.format(d);
+};
+
+/** "14:05" for today, "12 Nov" for earlier days. For the conversation list. */
+export const formatMessageDay = (iso: string | null | undefined, now: Date = new Date()): string => {
+  const d = parse(iso);
+  if (!d) return "";
+  return d.toDateString() === now.toDateString() ? time.format(d) : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(d);
+};
