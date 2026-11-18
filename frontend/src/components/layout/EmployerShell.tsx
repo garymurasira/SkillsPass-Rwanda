@@ -1,5 +1,6 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { Search, Heart, Briefcase, MessageCircle, Settings } from "lucide-react";
+import { RequireRole } from "@/lib/auth";
 import { BottomTabBar, useIsTabActive, type Tab } from "../BottomTabBar";
 import { Logo } from "../Logo";
 
@@ -14,6 +15,7 @@ const tabs: Tab[] = [
 export function EmployerShell() {
   const isActive = useIsTabActive();
   return (
+    <RequireRole role="EMPLOYER">
     <div className="flex min-h-screen w-full">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-1 border-r bg-card p-4 md:flex">
         <div className="mb-6 px-2"><Logo /></div>
@@ -28,5 +30,6 @@ export function EmployerShell() {
         <BottomTabBar tabs={tabs} className="md:hidden" />
       </div>
     </div>
+    </RequireRole>
   );
 }

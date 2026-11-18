@@ -1,9 +1,10 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { ListChecks, Flag, LogOut } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarFooter,
 } from "@/components/ui/sidebar";
+import { RequireRole, useAuth } from "@/lib/auth";
 import { Logo } from "../Logo";
 
 const items = [
@@ -12,7 +13,17 @@ const items = [
 ] as const;
 
 export function AdminShell() {
+  return (
+    <RequireRole role="ADMIN">
+      <AdminLayout />
+    </RequireRole>
+  );
+}
+
+function AdminLayout() {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -36,7 +47,11 @@ export function AdminShell() {
           </SidebarContent>
           <SidebarFooter>
             <SidebarMenu><SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Sign out" className="h-11"><Link to="/admin/login"><LogOut className="h-5 w-5" /><span>Sign out</span></Link></SidebarMenuButton>
+              <SidebarMenuButton
+                tooltip="Sign out"
+                className="h-11"
+                onClick={async () => { await signOut(); navigate({ to: "/admin/login", replace: true }); }}
+              ><LogOut className="h-5 w-5" /><span>Sign out</span></SidebarMenuButton>
             </SidebarMenuItem></SidebarMenu>
           </SidebarFooter>
         </Sidebar>
