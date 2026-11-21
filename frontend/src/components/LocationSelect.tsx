@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { provinces } from "@/mock/locations";
+import { provinces } from "@/lib/locations";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
