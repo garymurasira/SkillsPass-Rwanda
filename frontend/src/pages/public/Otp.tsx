@@ -13,10 +13,8 @@ import { clearPending, readPending, type PendingAuth } from "@/lib/auth/pending"
 import { AuthLayout } from "./AuthLayout";
 
 type OtpBodyProps = {
-  /** Prototype use (phone change, until Stage 4): called when Continue is pressed. */
-  onDone?: () => void;
-  /** Real use: resolves with an error message to show, or null when it worked. */
-  onSubmit?: (code: string) => Promise<string | null>;
+  /** Checks the code. Resolves with an error message to show, or null when it worked. */
+  onSubmit: (code: string) => Promise<string | null>;
   /** Asks for a new code. Resolves with an error message, or null when it worked. */
   onResend?: () => Promise<string | null>;
   wrongNumberTo?: string;
@@ -24,14 +22,13 @@ type OtpBodyProps = {
   onWrongNumber?: () => void;
 };
 
-export function OtpBody({ onDone, onSubmit, onResend, wrongNumberTo = "/login", onWrongNumber }: OtpBodyProps) {
+export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongNumber }: OtpBodyProps) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { left, restart } = useCountdown(60);
 
   async function submit() {
-    if (!onSubmit) return onDone?.();
     setBusy(true);
     setError(null);
     const message = await onSubmit(code);

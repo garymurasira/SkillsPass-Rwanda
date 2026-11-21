@@ -6,7 +6,7 @@ type Props = {
   label: string;
   type?: string;
   placeholder?: string;
-  /** Uncontrolled use (prototype screens). Pass `value` + `onChange` for a controlled field. */
+  /** Leave `value` out for an uncontrolled field that starts from this. Otherwise pass `value` + `onChange`. */
   defaultValue?: string;
   value?: string;
   onChange?: (value: string) => void;
