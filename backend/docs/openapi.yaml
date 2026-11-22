@@ -169,6 +169,8 @@ paths:
       summary: Confirm the OTP and sign in
       description: |
         Admins must also send `totpCode`. An admin whose authenticator is not set up yet gets `403 ADMIN_2FA_NOT_ENROLLED`.
+        A wrong `totpCode` (`401 TOTP_INVALID`) does not use up the SMS code, so the admin can correct it and retry with the
+        same SMS code. Each wrong try counts toward the 5-try limit on that SMS code (then `429 OTP_LOCKED`).
         A wrong OTP counts against a limit of 5 attempts per code (`OTP_LOCKED` afterwards).
       security: []
       requestBody:

@@ -3,7 +3,7 @@ import { prisma } from '../../shared/prisma';
 import { AppError } from '../../shared/errors';
 import { decrypt, encrypt, hashPhone } from '../../shared/crypto';
 import { verifyTotp } from '../../shared/totp';
-import { consumeOtp, issueOtp } from './otp';
+import { claimOtp, consumeOtp, issueOtp, recordFailedAttempt, verifyOtp } from './otp';
 import { issueTokenPair } from './tokens';
 import { registerSchema, type RegisterInput } from './schemas';
 
@@ -62,18 +62,25 @@ export async function completeLogin(phone: string, code: string, totpCode?: stri
   });
   if (!user) throw new AppError(404, 'USER_NOT_FOUND');
 
-  await consumeOtp(phone, 'LOGIN', code);
+  const otp = await verifyOtp(phone, 'LOGIN', code);
 
-  // NFR 10: admins need a second factor on top of the SMS code.
+  // NFR 10: admins need a second factor on top of the SMS code. The SMS code is only used up once
+  // both pass, so a typo in the authenticator code doesn't cost a new SMS. Each wrong authenticator
+  // code still counts as a failed try on the SMS code, so it can't be guessed at: 5 tries, then
+  // a new code is needed.
   if (user.role === 'ADMIN') {
     const admin = user.admin;
     if (!admin?.secondFactorEnabled || !admin.totpSecretEncrypted) {
       throw new AppError(403, 'ADMIN_2FA_NOT_ENROLLED');
     }
     if (!totpCode) throw new AppError(401, 'TOTP_REQUIRED');
-    if (!verifyTotp(decrypt(admin.totpSecretEncrypted), totpCode)) throw new AppError(401, 'TOTP_INVALID');
+    if (!verifyTotp(decrypt(admin.totpSecretEncrypted), totpCode)) {
+      await recordFailedAttempt(otp.id);
+      throw new AppError(401, 'TOTP_INVALID');
+    }
   }
 
+  await claimOtp(otp.id);
   return { user: publicUser(user), ...(await issueTokenPair(user.id, user.role)) };
 }
 
