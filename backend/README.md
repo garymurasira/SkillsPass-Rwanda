@@ -79,7 +79,8 @@ In Swagger UI (`/api/docs`) click **Authorize** and paste the access token to tr
 The seed creates an admin so you can exercise the verification workflow:
 
 - Phone: `+250780000000`
-- Admins sign in with the SMS code **and** an authenticator code (NFR 10). The first time you seed, the console
+- Admins sign in with the SMS code **and** an authenticator code (NFR 10). A mistyped authenticator code does not
+  use up the SMS code, so you can correct it and try again (5 tries per SMS code). The first time you seed, the console
   prints a secret key and an `otpauth://` URL. Add the secret to an authenticator app (Google Authenticator, etc.).
 - Lost the secret? Reset it, then seed again to get a new one:
   ```sql
@@ -90,6 +91,30 @@ The seed creates an admin so you can exercise the verification workflow:
   ```
 
 Never seed this admin in production. Create real admins deliberately.
+
+## Demo data
+
+For a presentation, add a ready-made set of accounts so every screen has something to show:
+
+```bash
+npm run seed:demo              # adds the demo data (does nothing if it is already there)
+npm run seed:demo -- --reset   # removes the demo accounts and adds them again, back to the starting state
+```
+
+It needs the development admin from `npm run prisma:seed` and refuses to run in production. It only ever touches
+its own accounts (phone numbers `+250788100001` to `+250788100011` and `+250788200001` to `+250788200003`), so other
+data in the database is left alone. The pictures are generated artwork, not real people.
+
+| Sign in as | Phone | What you see |
+|---|---|---|
+| Worker: Jean Bosco Niyonzima | `+250788100001` | Verified electrician, 3 reviews, a finished job to confirm, 2 unread messages |
+| Employer: Inzozi Builders | `+250788200001` | 2 favorites, a running job, a confirmed job to rate, 1 unread reply |
+| Staff: Admin Alice | `+250780000000` | Verification queue, a flagged skill (needs the authenticator code from the first seed) |
+
+Other cases are in the data for the admin screens and the worker's Verify tab: a verification in progress (Olivier
+Mugisha), a brand-new profile that isn't visible yet (Grace Uwimana), a skill flagged for review (Vestine
+Nyirahabimana) and a failed verification that can be tried again (Samuel Tuyishime). Sign in with the phone number
+and read the SMS code from the server console.
 
 ## Scripts
 
@@ -103,6 +128,7 @@ Never seed this admin in production. Create real admins deliberately.
 | `npx prisma migrate dev` | Create/apply migrations during development |
 | `npx prisma migrate deploy` | Apply migrations in production (create the database first) |
 | `npm run prisma:seed` | Seed skill types and the dev admin (safe to re-run) |
+| `npm run seed:demo` | Add demo workers, employers, jobs and messages (see "Demo data") |
 | `npx prisma studio` | Browse the database in a web UI |
 
 ## Configuration
