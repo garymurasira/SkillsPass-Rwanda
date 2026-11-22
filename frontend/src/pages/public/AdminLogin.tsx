@@ -59,8 +59,9 @@ export default function AdminLogin() {
       signIn(await signInMutation.mutateAsync()); // RedirectIfAuthed then moves staff to /admin
     } catch (e) {
       setFormError(errorMessage(e));
-      setSmsCode("");
       setTotp("");
+      // A wrong authenticator code leaves the SMS code valid, so only a wrong or locked SMS code clears it.
+      if (!hasErrorCode(e, "TOTP_INVALID")) setSmsCode("");
     }
   }
 

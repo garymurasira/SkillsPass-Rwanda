@@ -29,7 +29,7 @@ const MESSAGES: Record<string, string> = {
   SMS_SEND_FAILED: "We couldn't send the SMS. Please try again.",
   ADMIN_2FA_NOT_ENROLLED: "This staff account has no authenticator set up yet. Contact an administrator.",
   TOTP_REQUIRED: "Staff accounts also need an authenticator code. Please use Staff sign in.",
-  TOTP_INVALID: "The authenticator code is wrong. Ask for a new SMS code and try again.",
+  TOTP_INVALID: "The authenticator code is wrong. Check the code in your app and try again.",
 
   // Profile
   PROFILE_NOT_FOUND: "We couldn't find this profile.",
