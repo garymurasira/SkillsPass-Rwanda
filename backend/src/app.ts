@@ -18,7 +18,16 @@ export function createApp() {
   app.use(cors());
   app.use(express.json({ limit: '1mb' }));
 
-  app.use(UPLOAD_URL_PREFIX, express.static(UPLOAD_ROOT, { maxAge: '7d', index: false }));
+  // Photos are public and the web app is served from a different origin than the API, so browsers must be
+  // allowed to show them there. Helmet's default ("same-origin") would block every <img> from the app.
+  app.use(
+    UPLOAD_URL_PREFIX,
+    (_req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(UPLOAD_ROOT, { maxAge: '7d', index: false }),
+  );
   app.use('/api', router);
 
   app.use(notFound);

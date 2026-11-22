@@ -14,7 +14,6 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as EmployerRouteImport } from './routes/employer'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OtpRouteImport } from './routes/otp'
-import { Route as StatesRouteImport } from './routes/states'
 import { Route as WorkerRouteImport } from './routes/worker'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminFlaggedRouteImport } from './routes/admin.flagged'
@@ -65,11 +64,6 @@ const LoginRoute = LoginRouteImport.update({
 const OtpRoute = OtpRouteImport.update({
   id: '/otp',
   path: '/otp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StatesRoute = StatesRouteImport.update({
-  id: '/states',
-  path: '/states',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkerRoute = WorkerRouteImport.update({
@@ -209,7 +203,6 @@ export interface FileRoutesByFullPath {
   '/employer': typeof EmployerRouteWithChildren
   '/login': typeof LoginRoute
   '/otp': typeof OtpRoute
-  '/states': typeof StatesRoute
   '/worker': typeof WorkerRouteWithChildren
   '/admin/flagged': typeof AdminFlaggedRoute
   '/admin/login': typeof AdminLoginRoute
@@ -241,7 +234,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/otp': typeof OtpRoute
-  '/states': typeof StatesRoute
   '/admin/flagged': typeof AdminFlaggedRoute
   '/admin/login': typeof AdminLoginRoute
   '/employer/favorites': typeof EmployerFavoritesRoute
@@ -275,7 +267,6 @@ export interface FileRoutesById {
   '/employer': typeof EmployerRouteWithChildren
   '/login': typeof LoginRoute
   '/otp': typeof OtpRoute
-  '/states': typeof StatesRoute
   '/worker': typeof WorkerRouteWithChildren
   '/admin/flagged': typeof AdminFlaggedRoute
   '/admin_/login': typeof AdminLoginRoute
@@ -311,7 +302,6 @@ export interface FileRouteTypes {
     | '/employer'
     | '/login'
     | '/otp'
-    | '/states'
     | '/worker'
     | '/admin/flagged'
     | '/admin/login'
@@ -343,7 +333,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/otp'
-    | '/states'
     | '/admin/flagged'
     | '/admin/login'
     | '/employer/favorites'
@@ -376,7 +365,6 @@ export interface FileRouteTypes {
     | '/employer'
     | '/login'
     | '/otp'
-    | '/states'
     | '/worker'
     | '/admin/flagged'
     | '/admin_/login'
@@ -411,7 +399,6 @@ export interface RootRouteChildren {
   EmployerRoute: typeof EmployerRouteWithChildren
   LoginRoute: typeof LoginRoute
   OtpRoute: typeof OtpRoute
-  StatesRoute: typeof StatesRoute
   WorkerRoute: typeof WorkerRouteWithChildren
   AdminLoginRoute: typeof AdminLoginRoute
   RegisterEmployerRoute: typeof RegisterEmployerRoute
@@ -453,13 +440,6 @@ declare module '@tanstack/react-router' {
       path: '/otp'
       fullPath: '/otp'
       preLoaderRoute: typeof OtpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/states': {
-      id: '/states'
-      path: '/states'
-      fullPath: '/states'
-      preLoaderRoute: typeof StatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/worker': {
@@ -724,7 +704,6 @@ const rootRouteChildren: RootRouteChildren = {
   EmployerRoute: EmployerRouteWithChildren,
   LoginRoute: LoginRoute,
   OtpRoute: OtpRoute,
-  StatesRoute: StatesRoute,
   WorkerRoute: WorkerRouteWithChildren,
   AdminLoginRoute: AdminLoginRoute,
   RegisterEmployerRoute: RegisterEmployerRoute,

@@ -171,6 +171,52 @@ describe('admin second factor', () => {
     expect(ok.body.user.role).toBe('ADMIN');
   });
 
+  it('keeps the SMS code usable after a mistyped authenticator code', async () => {
+    const { phone, secret } = await createAdmin(true);
+    const code = await loginOtp(phone);
+
+    const wrong = await request(app).post('/api/auth/login/verify').send({ phone, code, totpCode: '000000' });
+    expect(wrong.status).toBe(401);
+    expect(wrong.body.error.code).toBe('TOTP_INVALID');
+
+    // Same SMS code, corrected authenticator code: no new SMS needed.
+    const ok = await request(app)
+      .post('/api/auth/login/verify')
+      .send({ phone, code, totpCode: totpAt(secret, Date.now()) });
+    expect(ok.status).toBe(200);
+    expect(ok.body.user.role).toBe('ADMIN');
+
+    // ...and now the code is used up.
+    const again = await request(app)
+      .post('/api/auth/login/verify')
+      .send({ phone, code, totpCode: totpAt(secret, Date.now()) });
+    expect(again.body.error.code).toBe('OTP_INVALID');
+  });
+
+  it('locks the SMS code after 5 wrong authenticator codes, so they cannot be guessed', async () => {
+    const { phone, secret } = await createAdmin(true);
+    const code = await loginOtp(phone);
+
+    for (let i = 0; i < 5; i++) {
+      const res = await request(app).post('/api/auth/login/verify').send({ phone, code, totpCode: '000000' });
+      expect(res.body.error.code).toBe('TOTP_INVALID');
+    }
+    const locked = await request(app)
+      .post('/api/auth/login/verify')
+      .send({ phone, code, totpCode: totpAt(secret, Date.now()) });
+    expect(locked.status).toBe(429);
+    expect(locked.body.error.code).toBe('OTP_LOCKED');
+  });
+
+  it('does not reveal whether the authenticator code is right when the SMS code is wrong', async () => {
+    const { phone, secret } = await createAdmin(true);
+    await loginOtp(phone);
+    const res = await request(app)
+      .post('/api/auth/login/verify')
+      .send({ phone, code: '000000', totpCode: totpAt(secret, Date.now()) });
+    expect(res.body.error.code).toBe('OTP_INVALID');
+  });
+
   it('refuses admin login until a second factor is enrolled', async () => {
     const { phone } = await createAdmin(false);
     const code = await loginOtp(phone);

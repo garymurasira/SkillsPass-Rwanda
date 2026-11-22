@@ -1,9 +1,8 @@
 import { MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { ChatThread, ConversationList, peerFor } from "@/components/Messages";
+import { ConversationList, ThreadView } from "@/components/Messages";
 
 export default function EmployerMessages({ activeId }: { activeId?: string | undefined }) {
-  const peer = activeId ? peerFor(activeId) : undefined;
   return (
     <div className="flex flex-1 md:h-screen">
       <div className={`w-full flex-col border-r md:flex md:w-80 md:shrink-0 ${activeId ? "hidden" : "flex"}`}>
@@ -12,10 +11,7 @@ export default function EmployerMessages({ activeId }: { activeId?: string | und
       </div>
       <div className={`min-w-0 flex-1 flex-col ${activeId ? "flex" : "hidden md:flex"}`}>
         {activeId ? (
-          <>
-            <PageHeader title={peer?.name ?? "Chat"} back />
-            <ChatThread />
-          </>
+          <ThreadView peerId={activeId} role="employer" />
         ) : (
           <div className="grid flex-1 place-items-center text-muted-foreground"><p className="flex items-center gap-2"><MessageCircle className="h-5 w-5" />Choose a conversation</p></div>
         )}

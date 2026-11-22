@@ -7,7 +7,7 @@ export function StarRating({ value, count, size = "sm", onChange }: Props) {
   if (count === 0 && !onChange) return <span className="text-sm text-muted-foreground">No ratings yet</span>;
   const cls = size === "lg" ? "h-9 w-9" : "h-4 w-4";
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-1">
       {[1, 2, 3, 4, 5].map((n) => {
         const icon = <Star className={cn(cls, n <= Math.round(value) ? "fill-star text-star" : "text-border")} />;
         return onChange ? (

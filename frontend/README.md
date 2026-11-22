@@ -1,110 +1,129 @@
-# Rwanda Skills Passport
+# SkillsPass Rwanda: Frontend
 
-Build the **UI layout only** for **SkillsPass Rwanda**, a mobile-first app where informal workers in Rwanda show a verified skills profile and employers search for verified workers. Build every screen below in one pass as a clickable prototype with static mock data. Do not ask me questions.
+The web app for **SkillsPass Rwanda**, a skills portfolio and verification platform for informal workers in Rwanda.
+Workers build a profile and get their main skill verified through three references. Employers search the verified
+workers, message them, record completed jobs and rate the work. Staff verify the references.
 
-## Scope: layout only
+It is a mobile-first web app (designed for low-end Android phones on 3G) with three areas:
 
-- **No backend, no Supabase, no real authentication, no API calls, no i18n library, no PWA setup.** Another tool will add all of that later.
-- Every form and button just navigates to the next logical screen or shows a toast. Nothing is saved.
-- Put ALL mock data in one file, `src/mock/data.ts`, using the field names listed in section 3, so real data can replace it later.
-- Keep each screen in its own file under `src/pages/` and reusable pieces under `src/components/`. Use React + Vite + TypeScript + Tailwind + shadcn/ui + React Router. Lazy-load routes.
-- English text only. Include the language switcher (RW / EN / FR) as a visual control, with no behavior.
+| Area | For | Layout |
+|---|---|---|
+| `/worker/*` | Workers | Phone layout with a bottom tab bar (Profile, Verify, Jobs, Messages, Settings) |
+| `/employer/*` | Employers | Phone layout on small screens, sidebar and two-column screens on laptops |
+| `/admin/*` | Staff (verifiers) | Sidebar layout for desktop and tablet |
 
-## 1. Design direction
+It talks to the API in [../backend](../backend/). Start the backend first: see [../backend/README.md](../backend/README.md).
 
-- Users are low-literacy workers on low-end Android phones (360px wide, 4.5"–6.5" screens). Design for that:
-  - Mobile-first at 360px. Touch targets at least 48px. Body text at least 14px.
-  - Icon-plus-short-label navigation, big photos and icons, one task per screen, very simple wording.
-  - Light on images and effects. No heavy animations. Use skeleton loaders on a couple of screens to show the pattern.
-- Style: calm, trustworthy and high-contrast. Deep green primary, warm yellow accent, white background, rounded cards, generous spacing.
-- A green check **"Verified"** badge appears wherever a verified skill is shown, and a gray **"Not verified"** tag for unverified ones.
-- Every list screen needs an empty state, and every screen with data needs a loading skeleton and an error-with-retry variant (reachable from a small "preview states" switch on a hidden `/states` page, or via a `?state=empty|loading|error` URL param).
-- Worker and employer screens use a **bottom tab bar** on mobile. Admin screens use a **sidebar layout** for desktop and tablet.
-- **Responsive behavior (required):** design mobile-first, then adapt at Tailwind breakpoints.
-  - **Worker screens:** phone layout up to `md`. On `md` and above, keep a centered column (max ~480px) with the bottom tab bar kept inside that column.
-  - **Employer screens:** employers mostly use laptops, so do NOT use a phone column. Below `md`, use the phone layout with the bottom tabs. At `md` and above, switch the bottom tabs to a **left sidebar or top nav**. The worker search becomes a **two-column layout** (filter panel pinned on the left, results in a 2 to 3 column card grid on the right at `lg`). Worker detail becomes two columns (photo and actions on the left, bio, portfolio and reviews on the right). Chat becomes a split view (conversation list on the left, thread on the right).
-  - **Admin screens:** sidebar layout from `md` upward. Tables scroll horizontally on small screens, or collapse into stacked cards below `md`.
-  - Nothing may scroll horizontally on a 360px screen, and images must scale to their container.
+## Stack
 
-## 2. Screens and navigation
+| | |
+|---|---|
+| Framework | React 19, TanStack Start (Vite) with file-based routing |
+| Data | TanStack Query (caching, polling) over a small typed `fetch` client |
+| Forms | Controlled inputs with Zod checks that mirror the backend rules |
+| Styling | Tailwind CSS 4, shadcn/ui components |
+| API types | Generated from the backend's OpenAPI file |
+| Tests | Vitest, Testing Library |
 
-### Public
-1. **Landing** (`/`): logo, one-sentence promise, two big buttons "I am a worker" and "I am an employer", a "Sign in" link, a language switcher, and a small "Staff sign in" link.
-2. **Register** (`/register/worker`, `/register/employer`): a short form.
-   - Worker: name, phone, province dropdown, district dropdown.
-   - Employer: name, phone, company name, province, district, contact info.
-   - Then the **OTP screen** (`/otp`): a 6-digit code input with a big numeric keypad, a "Resend code in 60s" countdown, and a "Wrong number?" link. The Continue button goes to the worker or employer home depending on which flow it came from.
-3. **Sign in** (`/login`): phone number, then the same OTP screen. Include a "No account yet? Register" link.
-4. **Staff sign in** (`/admin/login`): phone, OTP code and authenticator code on one screen (desktop-friendly).
+## Quick start
 
-### Worker app (`/worker/*`, bottom tabs: Profile, Verify, Jobs, Messages, Settings)
-5. **Profile**
-   - A big round photo with a camera button, name, location.
-   - A **status banner** with two variants. One is a yellow "Not visible to employers yet" banner with a checklist (Add a photo, Add a short bio, Choose your main skill). The other is a green "Employers can find you" banner. Include a toggle in the prototype to preview both.
-   - Bio, main skill card (skill icon, years of experience, Verified or Pending badge), an "Other skills" list with a gray "Not verified" tag, and a portfolio photo grid (up to 12 tiles, with an "Add photo" tile and a delete button on each).
-   - An "Edit profile" button.
-6. **Edit profile** (`/worker/profile/edit`): name, province, district, bio (300-character counter) and a toggle "Let employers see my phone number" (off by default).
-7. **Choose main skill** (`/worker/skill`): big tappable icon cards for 7 skills (Electrician, Plumber, Carpenter, Solar technician, Mechanic, Mason, Welder), then a years-of-experience stepper (0–60). Include a **warning dialog** shown when changing to a different skill ("Changing your main skill will remove your Verified status and hide you from employers").
-8. **Add other skill** (`/worker/skills/add`): the same skill cards plus years.
-9. **Verify**
-   - Empty state: "Choose a main skill first".
-   - A **3-reference form**: three stacked cards, each with name, phone, and a relationship chip choice (Customer, Supervisor, Other), plus a "Submit for verification" button.
-   - A **status view** after submission: a simple timeline where each of the 3 references shows an icon for its state (clock = pending, green check = confirmed, red cross = not confirmed, phone-off = unreachable) and one line saying "A skill becomes Verified when 2 references confirm."
-   - Show both the form view and the status view, switchable in the prototype with the `?state=` param.
-10. **Jobs** (`/worker/jobs`): a list of job cards (employer company, date, status chip: In progress, Employer marked done, Completed). A job in "Employer marked done" shows a big **"Confirm job completed"** button. Plus a **My ratings** page (`/worker/ratings`) with an average star display and a list of reviews.
-11. **Messages** (`/worker/messages`): a conversation list (peer photo, name or company, last message, unread dot) and a **chat thread** (`/worker/messages/:id`) with simple bubbles and a big send button. Workers can only reply, so the thread screen has a reply box and the list has no "new message" button.
-12. **Settings** (`/worker/settings`): language switcher, "Change phone number" (a two-step screen: new number, then OTP), logout.
-
-### Employer app (`/employer/*`, bottom tabs: Find, Favorites, Jobs, Messages, Settings)
-13. **Find** (`/employer`)
-    - A collapsible **filter panel**: skill (icon chips), province, district, and minimum rating (1–5 stars). No text search and no sort control.
-    - A result list of **worker cards**: photo, name, Verified skill badge, years of experience, location, star rating with count (or "No ratings yet"), and a heart toggle.
-    - A "Load more" button, and an empty state ("No verified workers match your search yet. Try fewer filters.").
-14. **Worker detail** (`/employer/workers/:id`)
-    - A photo header, name, location, a Verified badge with skill and years, bio.
-    - A portfolio gallery that opens a full-screen image viewer.
-    - "Other skills" with the gray "Not verified" tag, a rating summary, and a reviews list (stars, comment, employer name, date).
-    - A sticky bottom action bar: **Send message**, **Start job**, and a heart toggle. A "Call" button appears only in one mock worker whose phone is shared.
-    - A "This worker is no longer available" variant screen.
-15. **Favorites** (`/employer/favorites`): the same worker cards, plus an empty state.
-16. **Jobs** (`/employer/jobs`): job cards with a status filter. An "In progress" job shows **"Mark as completed"**. A completed, unrated job shows **"Rate this worker"**, which opens a bottom sheet with a 1–5 star picker, an optional comment (200-character counter) and a submit button.
-17. **Messages** (`/employer/messages`): the conversation list and thread, the same as the worker's but with a "new message" entry through the worker detail page.
-18. **Settings** (`/employer/settings`): company profile form (name, company name, province, district, contact info), language, change phone, logout.
-
-### Admin (`/admin/*`, sidebar layout, desktop and tablet first)
-19. **Verification queue** (`/admin`): tabs Open / Verified / Not verified, and a table of rounds (worker, skill, province and district, date, a "n of 3 recorded" indicator) with a "Load more" button.
-20. **Round detail** (`/admin/rounds/:id`): worker and skill summary, then the 3 references with their **phone numbers** (as `tel:` links). Each reference has three segmented buttons: Confirmed, Not confirmed, Unreachable, and a "recorded at" timestamp. A short explanation: "Two confirmations verify the skill. There is no manual approve button." Include a disabled "round closed" variant.
-21. **Flagged skills** (`/admin/flagged`): a table (worker, skill, years, status) with a "Clear flag" button on each row.
-
-Also add a small `/states` page listing links to the empty, loading and error variants of the main screens, so I can review them quickly.
-
-## 3. Mock data (in `src/mock/data.ts`; use these field names)
-
-- `skillTypes`: 7 items `{ id, slug, nameEn, nameRw, nameFr }` for electrician, plumber, carpenter, solar-technician, mechanic, mason, welder. Use a simple icon for each.
-- `workers`: 12 items `{ id, name, photoUrl, region, city, bio, mainSkill:{ skillType, yearsOfExperience, verified }, otherSkills:[{ skillType, yearsOfExperience }], portfolio:[{ id, url }], rating:{ average, count }, reviews:[{ stars, comment, createdAt, employer }], phone (null for all except one), isFavorite }`. Use realistic Rwandan names, varied ratings, and a couple of unrated workers (count 0). Use placeholder images only.
-- `currentWorker` (the signed-in worker): the same shape plus `shareContact`, `profileComplete`, `missing: ["photo","bio"]` and `visibleToEmployers`.
-- `verification`: `{ status, canSubmit, rounds:[{ id, roundNumber, status, references:[{ id, name, relationship, result }] }] }`.
-- `jobs`: 3 items `{ id, status, createdAt, employerMarkedAt, workerConfirmedAt, worker:{ id, name }, employer:{ id, companyName }, canRate }`, one per status.
-- `conversations`: 2 items `{ peer:{ id, name, photoUrl, companyName }, lastMessage:{ content, sentAt, fromMe }, unreadCount }`, and a `messages` thread of about 8 messages `{ id, seq, content, sentAt, fromMe, readAt }`.
-- `adminRounds`: 3 items `{ id, roundNumber, status, createdAt, worker:{ id, name, region, city }, skill:{ name, yearsOfExperience, status }, references:[{ id, name, phone, relationship, result, recordedAt }] }`.
-- `flaggedSkills`: 2 items `{ id, worker:{ id, name }, skill, yearsOfExperience, status }`.
-- Provinces and districts for the dropdowns, in `src/mock/locations.ts`: Kigali (Gasabo, Kicukiro, Nyarugenge), Northern (Burera, Gakenke, Gicumbi, Musanze, Rulindo), Southern (Gisagara, Huye, Kamonyi, Muhanga, Nyamagabe, Nyanza, Nyaruguru, Ruhango), Eastern (Bugesera, Gatsibo, Kayonza, Kirehe, Ngoma, Nyagatare, Rwamagana), Western (Karongi, Ngororero, Nyabihu, Nyamasheke, Rubavu, Rusizi, Rutsiro).
-
-## 4. Rules
-
-1. Layout and navigation only. Do not write network code, token handling, validation logic, i18n or service workers.
-2. Do not add features that are not listed: no portfolio captions, no worker sort, no name search, no payments, no job postings, no user management or dashboards for admin.
-3. Do not show a "Message" button on the worker side. Workers can only reply.
-4. Reuse components: `WorkerCard`, `SkillBadge`, `StatusBanner`, `JobCard`, `StarRating`, `BottomTabBar`, `OtpInput`, `PhotoGrid`, `EmptyState`, `Skeleton`, `ErrorRetry`.
-5. Keep components small, text in plain JSX, and the visual language consistent across all three roles.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```bash
+cd frontend
+npm install
+cp .env.example .env.local     # only needed if your API is not at http://localhost:4000/api
+npm run dev                    # http://localhost:3000
 ```
+
+With the backend running on port 4000 (`npm run dev` in `backend/`), open <http://localhost:3000>.
+
+In development the backend **prints SMS codes in its console** instead of sending them, so keep that window visible
+when you register or sign in. Staff sign in needs an authenticator app: see "The development admin" in the backend
+README.
+
+| Setting | Purpose | Default |
+|---|---|---|
+| `VITE_API_URL` | Base URL of the API, including `/api` | `http://localhost:4000/api` |
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm run build` / `npm run preview` | Production build / serve it locally |
+| `npm test` / `npm run test:watch` | Run the tests |
+| `npm run typecheck` | TypeScript check without emitting |
+| `npm run lint` | ESLint |
+| `npm run gen:api` | Regenerate `src/lib/api/schema.d.ts` from `../backend/docs/openapi.yaml` |
+
+Run `npm run gen:api` after the backend's API contract changes.
+
+## Project layout
+
+```
+src/
+├── routes/            One file per URL (TanStack file routes). Thin: they pick a page.
+├── pages/             The screens: public/, worker/, employer/, admin/ (+ shared ones)
+├── components/        Reusable pieces (cards, photo grid, chat, tab bar, ...); ui/ is shadcn
+├── hooks/             Small React hooks
+├── lib/
+│   ├── api/           Typed API client and one file per area (auth, worker, employer, jobs, messages, verification)
+│   ├── queries/       TanStack Query hooks built on lib/api
+│   ├── auth/          Session storage, token refresh, AuthProvider, role guards
+│   ├── validation.ts  Form rules mirroring the backend (names, phone numbers, references)
+│   ├── phone.ts, format.ts, image.ts, locations.ts
+│   └── query-client.ts
+├── routeTree.gen.ts   Generated by the dev server. Commit it, don't edit it.
+└── test/              App-level tests (most tests sit next to the code they test)
+```
+
+## How it works
+
+**API client** ([src/lib/api/client.ts](src/lib/api/client.ts)). Every call goes through `api.get/post/put/...`. It sends JSON
+or multipart uploads, adds the access token, and turns every failure into an `ApiError` with the backend's stable
+`code` (for example `PHONE_TAKEN`) and the field `details` for validation errors. A server that can't be reached
+becomes `NETWORK_ERROR`.
+
+**Sign-in and session** ([src/lib/auth/](src/lib/auth/)). There are no passwords: a person enters their phone number, then
+the SMS code (staff also enter an authenticator code). The tokens are kept in `localStorage`. An expired access token
+is renewed silently and the request retried; only one renewal runs at a time, because the backend's refresh tokens work
+once. If the server rejects the refresh token the person is signed out; if the phone is simply offline they are not.
+`RequireRole` wraps the worker, employer and admin areas and sends people without the right role elsewhere. This is a
+convenience: the backend checks the role on every request.
+
+**Data fetching** ([src/lib/queries/](src/lib/queries/)). Screens use query hooks and handle the loading, error ("Try again") and
+empty states themselves. Responses that return the whole updated object (profile edits) go straight into the cache.
+Lists use "Load more" paging. Favorites flip instantly and are confirmed by the server.
+
+**Messaging** works by polling, as the SRS describes "API-based" messaging. An open chat asks the server only for
+messages newer than the last one it has, every 5 seconds while the tab is visible. The Messages tab badge refreshes
+every 30 seconds.
+
+**Photos.** Pictures are shrunk in the browser before upload (to save mobile data), and the server compresses them to
+under 500 KB. Image paths from the API (`/uploads/...`) are resolved against the API server with `assetUrl()`.
+
+**Errors for people.** [src/lib/api/error-messages.ts](src/lib/api/error-messages.ts) holds one friendly sentence per backend error
+code. Raw codes are never shown.
+
+## Testing
+
+```bash
+npm test
+```
+
+The tests cover the API client (including token refresh), the session, role guards, form validation, the polling
+logic for chat, the favorites cache updates, and the main screens (reference form, jobs, photo grid, chat, cards).
+They run without a backend.
+
+## Known limitations and next steps
+
+- **Languages:** the screens are in English. The language switcher in Settings saves the choice to the account, but
+  the text does not change yet. Error messages are already kept in one table
+  ([error-messages.ts](src/lib/api/error-messages.ts)), so translating is mostly swapping strings.
+- **Token storage:** tokens live in `localStorage`, which scripts on the page can read. For production, move to
+  httpOnly cookies (this needs a small backend change).
+- **Messaging** is polling-based. WebSockets could replace it without changing the screens' data model.
+- **Not a PWA yet:** the SRS plans an installable app; there is no service worker or offline support.
+- **Locations:** provinces and districts come from a fixed list in [src/lib/locations.ts](src/lib/locations.ts) because the
+  API stores them as plain text.
+- **Accessibility and devices:** layouts follow the 360px phone target, but the screens have not been tested on real
+  low-end devices or with a screen reader.

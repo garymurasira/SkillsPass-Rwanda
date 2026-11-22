@@ -41,8 +41,10 @@ export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Pri
   }
 }
 
-// Validates and consumes the latest live code. A wrong guess counts against the attempt limit.
-export async function consumeOtp(phone: string, purpose: OtpPurpose, code: string) {
+// Checks the latest live code without using it up. A wrong guess counts against the attempt limit.
+// Use this when something else must also pass before the code is spent (see completeLogin), and
+// claimOtp afterwards. Most callers just want consumeOtp.
+export async function verifyOtp(phone: string, purpose: OtpPurpose, code: string) {
   const phoneHash = hashPhone(phone);
   const otp = await prisma.otpCode.findFirst({
     where: { phoneHash, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
@@ -54,16 +56,29 @@ export async function consumeOtp(phone: string, purpose: OtpPurpose, code: strin
   const expected = Buffer.from(otp.codeHash);
   const given = Buffer.from(hashCode(phoneHash, code));
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
-    await prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
+    await recordFailedAttempt(otp.id);
     throw new AppError(400, 'OTP_INVALID');
   }
+  return otp;
+}
 
-  // Single-use even under concurrent requests.
+// Counts one wrong try against a code. After MAX_ATTEMPTS the code is locked and a new one is needed.
+export async function recordFailedAttempt(otpId: string) {
+  await prisma.otpCode.update({ where: { id: otpId }, data: { attempts: { increment: 1 } } });
+}
+
+// Uses a verified code up. Single-use even under concurrent requests.
+export async function claimOtp(otpId: string) {
   const claimed = await prisma.otpCode.updateMany({
-    where: { id: otp.id, consumedAt: null },
+    where: { id: otpId, consumedAt: null },
     data: { consumedAt: new Date() },
   });
   if (claimed.count === 0) throw new AppError(400, 'OTP_INVALID');
+}
 
+// Validates and consumes the latest live code.
+export async function consumeOtp(phone: string, purpose: OtpPurpose, code: string) {
+  const otp = await verifyOtp(phone, purpose, code);
+  await claimOtp(otp.id);
   return otp;
 }
