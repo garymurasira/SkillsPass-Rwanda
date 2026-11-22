@@ -70,7 +70,7 @@ function Filters() {
 
 function GridSkeleton() {
   return (
-    <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3" aria-label="Loading">
+    <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3" aria-label="Loading">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex gap-3 rounded-2xl border p-3">
           <Skeleton className="h-20 w-20 rounded-xl" />
@@ -113,7 +113,7 @@ export default function Find() {
           ) : (
             <>
               <p className="text-sm text-muted-foreground" aria-live="polite">{total} verified {total === 1 ? "worker" : "workers"}</p>
-              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                 {workers.map((w) => <WorkerCard key={w.id} worker={w} />)}
               </div>
               {q.hasNextPage && (

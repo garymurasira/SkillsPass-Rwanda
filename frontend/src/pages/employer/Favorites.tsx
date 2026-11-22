@@ -26,7 +26,7 @@ export default function Favorites() {
             action={<Link to="/employer" className="flex h-12 items-center rounded-xl bg-primary px-6 font-bold text-primary-foreground">Find workers</Link>} />
         ) : (
           <>
-            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
               {workers.map((w) => <WorkerCard key={w.id} worker={w} />)}
             </div>
             {q.hasNextPage && (

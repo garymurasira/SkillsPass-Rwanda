@@ -93,12 +93,14 @@ export function ThreadView({ peerId, role }: { peerId: string; role: Role }) {
   useEffect(() => { stickToBottom.current = true; setText(""); }, [peerId]);
 
   const title = q.data ? peerTitle(role, q.data.peer) : "Chat";
+  // On a laptop the employer sees the list beside the chat, so the back arrow is only needed on phones.
+  const backMode = role === "employer" ? "mobile" : true;
 
-  if (q.isPending) return (<><PageHeader title="Chat" back /><div className="p-4"><ListSkeleton rows={3} /></div></>);
+  if (q.isPending) return (<><PageHeader title="Chat" back={backMode} /><div className="p-4"><ListSkeleton rows={3} /></div></>);
   if (!q.data) {
     return (
       <>
-        <PageHeader title="Chat" back />
+        <PageHeader title="Chat" back={backMode} />
         {hasErrorCode(q.error, "PEER_NOT_FOUND")
           ? <EmptyState icon={MessageCircle} title="We couldn't find this conversation" />
           : <ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} />}
@@ -118,7 +120,7 @@ export function ThreadView({ peerId, role }: { peerId: string; role: Role }) {
 
   return (
     <>
-      <PageHeader title={title} back />
+      <PageHeader title={title} back={backMode} />
       <div className="flex min-h-0 flex-1 flex-col">
         <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto p-4"
           onScroll={(e) => { const el = e.currentTarget; stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>

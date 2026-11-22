@@ -72,10 +72,10 @@ export default function WorkerDetail({ id }: { id: string }) {
             {w.mainSkill.verified && <SkillBadge status="verified" />}
           </div>
           <div className="sticky bottom-16 z-20 -mx-4 flex gap-2 border-t bg-background p-3 md:static md:mx-0 md:flex-wrap md:border-0 md:p-0">
-            <button type="button" onClick={() => navigate({ to: "/employer/messages/$id", params: { id: w.id } })} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-primary font-bold text-primary-foreground">
+            <button type="button" onClick={() => navigate({ to: "/employer/messages/$id", params: { id: w.id } })} className="flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary font-bold text-primary-foreground md:basis-full">
               <MessageCircle className="h-5 w-5" />Send message
             </button>
-            <button type="button" disabled={startJob.isPending} onClick={() => startJob.mutate()} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary font-bold text-primary disabled:opacity-60">
+            <button type="button" disabled={startJob.isPending} onClick={() => startJob.mutate()} className="flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border-2 border-primary font-bold text-primary disabled:opacity-60">
               <Play className="h-5 w-5" />{startJob.isPending ? "Starting…" : "Start job"}
             </button>
             {w.phone && (
