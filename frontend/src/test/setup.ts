@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import "@/lib/i18n"; // the app text, in English until a test switches the language
 
 Object.defineProperty(window, "scrollTo", {
   writable: true,
