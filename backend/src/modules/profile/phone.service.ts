@@ -9,7 +9,8 @@ export async function requestPhoneChange(userId: string, newPhone: string) {
   const taken = await prisma.user.findUnique({ where: { phoneHash: hashPhone(newPhone) } });
   if (taken) throw new AppError(409, 'PHONE_TAKEN');
 
-  await issueOtp(newPhone, 'PHONE_CHANGE');
+  const { language } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { language: true } });
+  await issueOtp(newPhone, 'PHONE_CHANGE', undefined, language);
   await prisma.user.update({
     where: { id: userId },
     data: { pendingPhoneHash: hashPhone(newPhone), pendingPhoneEncrypted: encrypt(newPhone) },
