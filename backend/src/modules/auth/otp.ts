@@ -1,10 +1,11 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
-import type { OtpPurpose, Prisma } from '@prisma/client';
+import type { Language, OtpPurpose, Prisma } from '@prisma/client';
 import { env } from '../../config/env';
 import { prisma } from '../../shared/prisma';
 import { AppError } from '../../shared/errors';
 import { hashPhone, normalizePhone } from '../../shared/crypto';
 import { getSms } from '../../shared/sms';
+import { otpMessage } from './sms-text';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -13,7 +14,8 @@ const MAX_ATTEMPTS = 5;
 const hashCode = (phoneHash: string, code: string) =>
   createHmac('sha256', env.PHONE_HASH_KEY).update(`${phoneHash}:${code}`).digest('hex');
 
-export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Prisma.InputJsonValue) {
+// `language` is the one saved on the person's account (or chosen at sign-up): the SMS is written in it.
+export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Prisma.InputJsonValue, language: Language = 'EN') {
   const phoneHash = hashPhone(phone);
 
   const recent = await prisma.otpCode.findFirst({
@@ -32,7 +34,7 @@ export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Pri
     },
   });
   try {
-    await getSms().send(normalizePhone(phone), `Your SkillsPass code is ${code}. It expires in 5 minutes.`);
+    await getSms().send(normalizePhone(phone), otpMessage(language, code, OTP_TTL_MS / 60_000));
   } catch (err) {
     // The code never reached the user: drop it so the resend cooldown does not block an immediate retry.
     await prisma.otpCode.delete({ where: { id: otp.id } }).catch(() => undefined);

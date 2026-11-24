@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/FormError";
 import { OtpInput } from "@/components/OtpInput";
@@ -23,6 +24,7 @@ type OtpBodyProps = {
 };
 
 export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongNumber }: OtpBodyProps) {
+  const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,20 +51,20 @@ export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongN
 
   return (
     <div className="space-y-6">
-      <p className="text-center text-lg">Enter the 6-digit code we sent by SMS.</p>
+      <p className="text-center text-lg">{t("auth.otp.intro")}</p>
       <FormError>{error}</FormError>
       <OtpInput value={code} onChange={setCode} />
       <Button size="lg" className="h-14 w-full text-lg" disabled={code.length < 6 || busy} onClick={() => void submit()}>
-        {busy ? "Checking…" : "Continue"}
+        {busy ? t("auth.otp.checking") : t("auth.otp.continue")}
       </Button>
       <div className="flex justify-between text-base">
         <button type="button" disabled={left > 0} onClick={() => void resend()} className="h-12 font-bold text-primary disabled:text-muted-foreground">
-          {left > 0 ? `Resend code in ${left}s` : "Resend code"}
+          {left > 0 ? t("auth.otp.resendIn", { seconds: left }) : t("auth.otp.resend")}
         </button>
         {onWrongNumber ? (
-          <button type="button" onClick={onWrongNumber} className="flex h-12 items-center font-bold text-primary underline">Wrong number?</button>
+          <button type="button" onClick={onWrongNumber} className="flex h-12 items-center font-bold text-primary underline">{t("auth.otp.wrongNumber")}</button>
         ) : (
-          <Link to={wrongNumberTo as "/"} className="flex h-12 items-center font-bold text-primary underline">Wrong number?</Link>
+          <Link to={wrongNumberTo as "/"} className="flex h-12 items-center font-bold text-primary underline">{t("auth.otp.wrongNumber")}</Link>
         )}
       </div>
     </div>
@@ -70,13 +72,14 @@ export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongN
 }
 
 export default function Otp() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { signIn } = useAuth();
   // Read after mount: the pending sign-in lives in sessionStorage, which the server can't see.
   const [pending, setPending] = useState<PendingAuth | null | undefined>(undefined);
   useEffect(() => setPending(readPending()), []);
 
-  if (pending === undefined) return <AuthLayout title="Enter code">{null}</AuthLayout>;
+  if (pending === undefined) return <AuthLayout title={t("auth.otp.title")}>{null}</AuthLayout>;
   // Nothing in progress (page opened directly, or the tab was closed): start from sign-in.
   if (pending === null) return <Navigate to="/login" replace />;
 
@@ -115,7 +118,7 @@ export default function Otp() {
   }
 
   return (
-    <AuthLayout title="Enter code">
+    <AuthLayout title={t("auth.otp.title")}>
       <OtpBody onSubmit={onSubmit} onResend={onResend} wrongNumberTo={wrongNumberTo} />
     </AuthLayout>
   );

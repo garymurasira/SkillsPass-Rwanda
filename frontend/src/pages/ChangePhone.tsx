@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/PageHeader";
 import { Field } from "@/components/Field";
 import { FormError } from "@/components/FormError";
@@ -18,6 +19,7 @@ const schema = z.object({ phone: phoneSchema });
 
 // Used by workers and employers. The new number only replaces the old one once its SMS code is confirmed.
 export default function ChangePhone({ backTo }: { backTo: "/worker/settings" | "/employer/settings" }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [step, setStep] = useState<1 | 2>(1);
@@ -49,7 +51,7 @@ export default function ChangePhone({ backTo }: { backTo: "/worker/settings" | "
     try {
       await confirmPhoneChange(code);
       await qc.invalidateQueries({ queryKey: ["worker"] }); // the profile shows the phone number
-      toast.success("Phone number changed");
+      toast.success(t("worker.phone.changed"));
       navigate({ to: backTo });
       return null;
     } catch (e) {
@@ -68,15 +70,15 @@ export default function ChangePhone({ backTo }: { backTo: "/worker/settings" | "
 
   return (
     <>
-      <PageHeader title={step === 1 ? "New phone number" : "Enter code"} back />
+      <PageHeader title={step === 1 ? t("worker.phone.newTitle") : t("worker.phone.codeTitle")} back />
       <div className="space-y-5 p-4">
-        <p className="text-sm font-bold text-muted-foreground">Step {step} of 2</p>
+        <p className="text-sm font-bold text-muted-foreground">{t("worker.phone.step", { step })}</p>
         {step === 1 ? (
           <form className="space-y-5" noValidate onSubmit={(e) => { e.preventDefault(); void sendCode(); }}>
             <FormError>{formError}</FormError>
-            <Field label="New phone number" type="tel" placeholder="078 000 0000" autoComplete="tel" value={phone}
+            <Field label={t("worker.phone.newLabel")} type="tel" placeholder={t("auth.phonePlaceholder")} autoComplete="tel" value={phone}
               onChange={(v) => { setPhone(v); setPhoneServerError(undefined); }} error={phoneError} />
-            <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={request.isPending}>{request.isPending ? "Sending…" : "Send me a code"}</Button>
+            <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={request.isPending}>{request.isPending ? t("common.sending") : t("common.sendCode")}</Button>
           </form>
         ) : (
           <OtpBody onSubmit={confirm} onResend={resend} onWrongNumber={() => setStep(1)} />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { AuthLayout } from "./AuthLayout";
 const schema = z.object({ phone: phoneSchema });
 
 export default function Login() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -44,13 +46,13 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout title="Sign in">
+    <AuthLayout title={t("auth.login.title")}>
       <form className="space-y-5" noValidate onSubmit={(e) => { e.preventDefault(); void onSubmit(); }}>
         <FormError>{formError}</FormError>
-        <Field label="Phone number" type="tel" placeholder="078 000 0000" autoComplete="tel" value={phone} onChange={(v) => { setPhone(v); setServerPhoneError(undefined); }} error={phoneError} />
-        <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={mutation.isPending}>{mutation.isPending ? "Sending…" : "Send me a code"}</Button>
+        <Field label={t("auth.login.phone")} type="tel" placeholder={t("auth.phonePlaceholder")} autoComplete="tel" value={phone} onChange={(v) => { setPhone(v); setServerPhoneError(undefined); }} error={phoneError} />
+        <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={mutation.isPending}>{mutation.isPending ? t("common.sending") : t("common.sendCode")}</Button>
       </form>
-      <p className="text-center">No account yet? <Link to="/" className="font-bold text-primary underline underline-offset-4">Register</Link></p>
+      <p className="text-center">{t("auth.login.noAccount")} <Link to="/" className="font-bold text-primary underline underline-offset-4">{t("auth.login.register")}</Link></p>
     </AuthLayout>
   );
 }

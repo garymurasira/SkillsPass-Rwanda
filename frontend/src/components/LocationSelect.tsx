@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { provinces } from "@/lib/locations";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function LocationSelect({ defaultProvince, defaultDistrict, province, district, onChange, errors }: Props) {
+  const { t } = useTranslation();
   const controlled = onChange !== undefined;
   const [innerProv, setInnerProv] = useState(defaultProvince ?? "");
   const prov = controlled ? (province ?? "") : innerProv;
@@ -28,17 +30,17 @@ export function LocationSelect({ defaultProvince, defaultDistrict, province, dis
   return (
     <>
       <div className="space-y-2">
-        <Label className="text-base">Province</Label>
+        <Label className="text-base">{t("auth.province")}</Label>
         <Select value={prov} onValueChange={pickProvince}>
           <SelectTrigger className="h-12 text-base" aria-invalid={errors?.province ? true : undefined}>
-            <SelectValue placeholder="Choose province" />
+            <SelectValue placeholder={t("auth.chooseProvince")} />
           </SelectTrigger>
           <SelectContent>{provinces.map((p) => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
         </Select>
         {errors?.province && <p role="alert" className="text-sm font-bold text-destructive">{errors.province}</p>}
       </div>
       <div className="space-y-2">
-        <Label className="text-base">District</Label>
+        <Label className="text-base">{t("auth.district")}</Label>
         <Select
           key={prov}
           {...(controlled
@@ -47,7 +49,7 @@ export function LocationSelect({ defaultProvince, defaultDistrict, province, dis
           disabled={!prov}
         >
           <SelectTrigger className="h-12 text-base" aria-invalid={errors?.district ? true : undefined}>
-            <SelectValue placeholder="Choose district" />
+            <SelectValue placeholder={t("auth.chooseDistrict")} />
           </SelectTrigger>
           <SelectContent>{districts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
         </Select>

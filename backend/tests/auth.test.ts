@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, afterAll } from 'vitest';
 import request from 'supertest';
-import { app, employerBody, lastCode, registerUser, resetDb, workerBody } from './helpers';
+import { app, employerBody, lastCode, lastSms, registerUser, resetDb, workerBody } from './helpers';
 import { prisma } from '../src/shared/prisma';
 import { encrypt, hashPhone } from '../src/shared/crypto';
 import { generateTotpSecret, totpAt } from '../src/shared/totp';
@@ -223,5 +223,30 @@ describe('admin second factor', () => {
     const res = await request(app).post('/api/auth/login/verify').send({ phone, code });
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('ADMIN_2FA_NOT_ENROLLED');
+  });
+});
+
+describe('sign-in code SMS language', () => {
+  it('writes the sign-up code in the language chosen at sign-up', async () => {
+    await request(app).post('/api/auth/register').send(workerBody('0788123456')).expect(202); // RW
+    expect(lastSms('+250788123456')).toMatch(/^Kode yawe ya SkillsPass ni \d{6}\./);
+
+    await request(app).post('/api/auth/register').send({ ...employerBody('0722123456'), language: 'FR' }).expect(202);
+    expect(lastSms('+250722123456')).toMatch(/^Votre code SkillsPass est \d{6}\./);
+
+    await request(app).post('/api/auth/register').send({ ...workerBody('0788123400'), language: 'EN' }).expect(202);
+    expect(lastSms('+250788123400')).toMatch(/^Your SkillsPass code is \d{6}\./);
+  });
+
+  it('uses the language saved on the account for later codes, even after it changes', async () => {
+    const { accessToken } = await registerUser(workerBody('0788123456')); // RW
+    await prisma.otpCode.deleteMany(); // skip the one-minute wait between codes
+    await request(app).post('/api/auth/login').send({ phone: '0788123456' }).expect(202);
+    expect(lastSms('+250788123456')).toMatch(/^Kode yawe ya SkillsPass/);
+
+    await request(app).patch('/api/auth/me/language').set('Authorization', `Bearer ${accessToken}`).send({ language: 'FR' }).expect(200);
+    await prisma.otpCode.deleteMany();
+    await request(app).post('/api/auth/login').send({ phone: '0788123456' }).expect(202);
+    expect(lastSms('+250788123456')).toMatch(/^Votre code SkillsPass/);
   });
 });

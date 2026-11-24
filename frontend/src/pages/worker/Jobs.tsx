@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Briefcase } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/PageHeader";
 import { JobCard } from "@/components/JobCard";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -12,6 +13,7 @@ import { errorMessage } from "@/lib/api/error-messages";
 import { useCompleteJob, useJobs } from "@/lib/queries/jobs";
 
 export default function WorkerJobs() {
+  const { t } = useTranslation();
   const q = useJobs();
   const complete = useCompleteJob();
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -19,27 +21,27 @@ export default function WorkerJobs() {
 
   return (
     <>
-      <PageHeader title="My jobs" />
+      <PageHeader title={t("worker.jobs.title")} />
       <div className="space-y-3 p-4">
         {q.isPending ? (
           <ListSkeleton />
         ) : q.isError ? (
           <ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} />
         ) : jobs.length === 0 ? (
-          <EmptyState icon={Briefcase} title="No jobs yet" text="When an employer starts a job with you, it shows here." />
+          <EmptyState icon={Briefcase} title={t("worker.jobs.emptyTitle")} text={t("worker.jobs.emptyText")} />
         ) : (
           <>
             {jobs.map((j) => (
               <JobCard key={j.id} job={j} title={j.employer.companyName}>
                 {j.status === "EMPLOYER_MARKED" && (
-                  <Button size="lg" className="h-14 w-full text-lg" disabled={complete.isPending} onClick={() => setConfirming(j.id)}>Confirm job completed</Button>
+                  <Button size="lg" className="h-14 w-full text-lg" disabled={complete.isPending} onClick={() => setConfirming(j.id)}>{t("worker.jobs.confirm")}</Button>
                 )}
-                {j.status === "IN_PROGRESS" && <p className="text-sm text-muted-foreground">When the work is done, the employer marks it here and you confirm.</p>}
+                {j.status === "IN_PROGRESS" && <p className="text-sm text-muted-foreground">{t("worker.jobs.hint")}</p>}
               </JobCard>
             ))}
             {q.hasNextPage && (
               <Button variant="outline" size="lg" className="h-12 w-full" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
-                {q.isFetchingNextPage ? "Loading…" : "Load more"}
+                {q.isFetchingNextPage ? t("common.loading") : t("common.loadMore")}
               </Button>
             )}
           </>
@@ -49,11 +51,11 @@ export default function WorkerJobs() {
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
         tone="default"
-        title="Is the job finished?"
-        text="Confirm only if the work is done. After that, the employer can rate you."
-        confirmLabel="Yes, it is finished"
-        cancelLabel="Not yet"
-        onConfirm={() => confirming && complete.mutate(confirming, { onSuccess: () => toast.success("Job confirmed"), onError: (e) => toast.error(errorMessage(e)) })}
+        title={t("worker.jobs.confirmTitle")}
+        text={t("worker.jobs.confirmText")}
+        confirmLabel={t("worker.jobs.confirmYes")}
+        cancelLabel={t("worker.jobs.confirmNo")}
+        onConfirm={() => confirming && complete.mutate(confirming, { onSuccess: () => toast.success(t("worker.jobs.confirmed")), onError: (e) => toast.error(errorMessage(e)) })}
       />
     </>
   );

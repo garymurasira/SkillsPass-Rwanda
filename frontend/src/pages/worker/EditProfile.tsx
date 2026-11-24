@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/PageHeader";
 import { Field } from "@/components/Field";
 import { FormError } from "@/components/FormError";
@@ -18,17 +19,18 @@ import { syncSessionName, useMyProfile, useUpdateProfile } from "@/lib/queries/w
 import { fieldErrors } from "@/lib/validation";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Your name needs at least 2 letters.").max(100, "That name is too long."),
-  province: z.string().min(1, "Please choose a province."),
-  district: z.string().min(1, "Please choose a district."),
+  name: z.string().trim().min(2, "errors.validation.nameShort").max(100, "errors.validation.nameLong"),
+  province: z.string().min(1, "errors.validation.province"),
+  district: z.string().min(1, "errors.validation.district"),
   bio: z.string().max(300),
 });
 
 export default function EditProfile() {
+  const { t } = useTranslation();
   const { data, isPending, isError, error, refetch } = useMyProfile();
   return (
     <>
-      <PageHeader title="Edit profile" back />
+      <PageHeader title={t("worker.edit.title")} back />
       {isPending ? <ProfileSkeleton /> : isError ? <ErrorRetry text={errorMessage(error)} onRetry={() => void refetch()} /> : <EditForm profile={data} />}
     </>
   );
@@ -36,6 +38,7 @@ export default function EditProfile() {
 
 // Rendered only once the profile has loaded, so the form can start from the real values.
 function EditForm({ profile }: { profile: WorkerProfile }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const update = useUpdateProfile();
   const [form, setForm] = useState({
@@ -58,7 +61,7 @@ function EditForm({ profile }: { profile: WorkerProfile }) {
         name: form.name.trim(), region: form.province, city: form.district, bio: form.bio.trim(), shareContact: form.shareContact,
       });
       syncSessionName(saved.name);
-      toast.success("Profile saved");
+      toast.success(t("worker.edit.saved"));
       navigate({ to: "/worker" });
     } catch (e) {
       const mapped: Record<string, string> = {};
@@ -74,7 +77,7 @@ function EditForm({ profile }: { profile: WorkerProfile }) {
   return (
     <form className="space-y-5 p-4" noValidate onSubmit={(e) => { e.preventDefault(); void save(); }}>
       <FormError>{formError}</FormError>
-      <Field label="Your name" autoComplete="name" value={form.name} onChange={(name) => set({ name })} error={errors.name} />
+      <Field label={t("common.yourName")} autoComplete="name" value={form.name} onChange={(name) => set({ name })} error={errors.name} />
       <LocationSelect
         province={form.province}
         district={form.district}
@@ -82,15 +85,15 @@ function EditForm({ profile }: { profile: WorkerProfile }) {
         errors={{ province: errors.province, district: errors.district }}
       />
       <div className="space-y-2">
-        <Label className="text-base">About me</Label>
-        <Textarea value={form.bio} maxLength={300} onChange={(e) => set({ bio: e.target.value })} rows={5} className="text-base" placeholder="What work do you do? Where?" />
+        <Label className="text-base">{t("worker.edit.aboutMe")}</Label>
+        <Textarea value={form.bio} maxLength={300} onChange={(e) => set({ bio: e.target.value })} rows={5} className="text-base" placeholder={t("worker.edit.bioPlaceholder")} />
         <p className="text-right text-sm text-muted-foreground">{form.bio.length} / 300</p>
       </div>
       <label className="flex items-center justify-between gap-4 rounded-2xl border p-4">
-        <span className="font-bold">Let employers see my phone number</span>
+        <span className="font-bold">{t("worker.edit.shareContact")}</span>
         <Switch checked={form.shareContact} onCheckedChange={(shareContact) => set({ shareContact })} />
       </label>
-      <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button>
+      <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={update.isPending}>{update.isPending ? t("common.saving") : t("common.save")}</Button>
     </form>
   );
 }

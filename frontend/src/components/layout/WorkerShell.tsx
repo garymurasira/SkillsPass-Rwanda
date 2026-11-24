@@ -1,20 +1,23 @@
 import { Outlet } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { UserRound, ShieldCheck, Briefcase, MessageCircle, Settings } from "lucide-react";
 import { RequireRole } from "@/lib/auth";
 import { useUnreadCount } from "@/lib/queries/messages";
 import { BottomTabBar, type Tab } from "../BottomTabBar";
 
-const tabs: Tab[] = [
-  { to: "/worker", label: "Profile", icon: UserRound, exact: true, extra: ["/worker/profile", "/worker/skill", "/worker/ratings"] },
-  { to: "/worker/verify", label: "Verify", icon: ShieldCheck },
-  { to: "/worker/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/worker/messages", label: "Messages", icon: MessageCircle },
-  { to: "/worker/settings", label: "Settings", icon: Settings },
+const tabsFor = (t: TFunction): Tab[] => [
+  { to: "/worker", label: t("common.nav.profile"), icon: UserRound, exact: true, extra: ["/worker/profile", "/worker/skill", "/worker/ratings"] },
+  { to: "/worker/verify", label: t("common.nav.verify"), icon: ShieldCheck },
+  { to: "/worker/jobs", label: t("common.nav.jobs"), icon: Briefcase },
+  { to: "/worker/messages", label: t("common.nav.messages"), icon: MessageCircle },
+  { to: "/worker/settings", label: t("common.nav.settings"), icon: Settings },
 ];
 
 export function WorkerShell() {
+  const { t } = useTranslation();
   const unread = useUnreadCount();
-  const shown = tabs.map((t) => (t.to === "/worker/messages" ? { ...t, badge: unread.data } : t));
+  const shown = tabsFor(t).map((t) => (t.to === "/worker/messages" ? { ...t, badge: unread.data } : t));
   return (
     <RequireRole role="WORKER">
     <div className="min-h-screen bg-muted md:py-6">

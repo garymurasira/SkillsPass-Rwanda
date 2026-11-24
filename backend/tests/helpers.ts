@@ -12,6 +12,13 @@ export const app = createApp();
 const sent: { to: string; message: string }[] = [];
 setSms({ send: async (to, message) => void sent.push({ to, message }) });
 
+/** The full text of the last SMS sent to a number. */
+export function lastSms(phone: string): string {
+  const msg = [...sent].reverse().find((m) => m.to === phone);
+  if (!msg) throw new Error(`no SMS sent to ${phone}`);
+  return msg.message;
+}
+
 export function lastCode(phone: string): string {
   const msg = [...sent].reverse().find((m) => m.to === phone);
   if (!msg) throw new Error(`no SMS sent to ${phone}`);
