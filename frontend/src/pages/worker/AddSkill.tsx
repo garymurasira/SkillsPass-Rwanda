@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/PageHeader";
 import { SkillPicker, YearsStepper } from "@/components/SkillPicker";
 import { ErrorRetry } from "@/components/ErrorRetry";
@@ -10,6 +11,7 @@ import { errorMessage } from "@/lib/api/error-messages";
 import { useAddOtherSkill, useMyProfile, useSkillTypes } from "@/lib/queries/worker";
 
 export default function AddSkill() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const profile = useMyProfile();
   const types = useSkillTypes();
@@ -22,7 +24,7 @@ export default function AddSkill() {
     if (!skillTypeId) return;
     try {
       await add.mutateAsync({ skillTypeId, years });
-      toast.success("Skill added");
+      toast.success(t("worker.addSkill.added"));
       navigate({ to: "/worker" });
     } catch (e) {
       toast.error(errorMessage(e));
@@ -36,7 +38,7 @@ export default function AddSkill() {
 
   return (
     <>
-      <PageHeader title="Add other skill" back />
+      <PageHeader title={t("worker.addSkill.title")} back />
       {profile.isPending ? (
         <div className="p-4"><ListSkeleton /></div>
       ) : profile.isError ? (
@@ -44,8 +46,8 @@ export default function AddSkill() {
       ) : (
         <div className="space-y-6 p-4">
           <SkillPicker value={skill} onChange={setSkill} disabledSlugs={taken} />
-          <div className="space-y-2"><h2 className="text-lg font-bold">Years of experience</h2><YearsStepper value={years} onChange={setYears} /></div>
-          <Button size="lg" disabled={!skill || add.isPending} className="h-14 w-full text-lg" onClick={() => void save()}>{add.isPending ? "Adding…" : "Add skill"}</Button>
+          <div className="space-y-2"><h2 className="text-lg font-bold">{t("worker.chooseSkill.years")}</h2><YearsStepper value={years} onChange={setYears} /></div>
+          <Button size="lg" disabled={!skill || add.isPending} className="h-14 w-full text-lg" onClick={() => void save()}>{add.isPending ? t("worker.addSkill.adding") : t("worker.addSkill.add")}</Button>
         </div>
       )}
     </>

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { useSkillName } from "@/lib/i18n/hooks";
 import { useSkillTypes } from "@/lib/queries/worker";
 import { errorMessage } from "@/lib/api/error-messages";
 import { ErrorRetry } from "./ErrorRetry";
@@ -13,11 +15,13 @@ type Props = {
 };
 
 export function SkillPicker({ value, onChange, disabledSlugs = [] }: Props) {
+  const { t } = useTranslation();
+  const skillName = useSkillName();
   const { data, isPending, isError, error, refetch } = useSkillTypes();
 
   if (isPending) {
     return (
-      <div className="grid grid-cols-2 gap-3" aria-label="Loading skills">
+      <div className="grid grid-cols-2 gap-3" aria-label={t("common.loadingSkills")}>
         {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
       </div>
     );
@@ -32,7 +36,7 @@ export function SkillPicker({ value, onChange, disabledSlugs = [] }: Props) {
           <button key={s.id} type="button" disabled={disabled} onClick={() => onChange(s.slug)} aria-pressed={value === s.slug}
             className={`flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border-2 p-3 font-bold disabled:opacity-40 ${value === s.slug ? "border-primary bg-secondary text-primary" : "bg-card"}`}>
             <SkillIcon slug={s.slug} className="h-10 w-10" />
-            {s.nameEn}
+            {skillName(s)}
           </button>
         );
       })}
@@ -41,11 +45,12 @@ export function SkillPicker({ value, onChange, disabledSlugs = [] }: Props) {
 }
 
 export function YearsStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between rounded-2xl border p-3">
-      <button type="button" aria-label="Less" onClick={() => onChange(Math.max(0, value - 1))} className="h-14 w-14 rounded-full bg-muted text-3xl font-bold">−</button>
-      <div className="text-center"><p className="text-4xl font-bold">{value}</p><p className="text-sm text-muted-foreground">years</p></div>
-      <button type="button" aria-label="More" onClick={() => onChange(Math.min(60, value + 1))} className="h-14 w-14 rounded-full bg-primary text-3xl font-bold text-primary-foreground">+</button>
+      <button type="button" aria-label={t("common.less")} onClick={() => onChange(Math.max(0, value - 1))} className="h-14 w-14 rounded-full bg-muted text-3xl font-bold">−</button>
+      <div className="text-center"><p className="text-4xl font-bold">{value}</p><p className="text-sm text-muted-foreground">{t("common.yearsUnit")}</p></div>
+      <button type="button" aria-label={t("common.more")} onClick={() => onChange(Math.min(60, value + 1))} className="h-14 w-14 rounded-full bg-primary text-3xl font-bold text-primary-foreground">+</button>
     </div>
   );
 }

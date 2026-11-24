@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,7 +18,8 @@ type Props = {
 };
 
 /** "Are you sure?" for anything that can't be undone with one tap. */
-export function ConfirmDialog({ open, onOpenChange, title, text, confirmLabel, cancelLabel = "Cancel", onConfirm, tone = "destructive" }: Props) {
+export function ConfirmDialog({ open, onOpenChange, title, text, confirmLabel, cancelLabel, onConfirm, tone = "destructive" }: Props) {
+  const { t } = useTranslation();
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -26,7 +28,7 @@ export function ConfirmDialog({ open, onOpenChange, title, text, confirmLabel, c
           <AlertDialogDescription className="text-base">{text}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="h-12">{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel className="h-12">{cancelLabel ?? t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction className={tone === "destructive" ? "h-12 bg-destructive text-destructive-foreground hover:bg-destructive/90" : "h-12"} onClick={onConfirm}>
             {confirmLabel}
           </AlertDialogAction>

@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Camera, MapPin, Pencil, Plus, Star, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { useSkillName } from "@/lib/i18n/hooks";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBanner } from "@/components/StatusBanner";
 import { SkillBadge } from "@/components/SkillBadge";
@@ -22,6 +24,8 @@ import {
 const badgeFor = (s: SkillStatus) => (s === "VERIFIED" ? "verified" : s === "PENDING" ? "pending" : "unverified");
 
 export default function Profile() {
+  const { t } = useTranslation();
+  const skillName = useSkillName();
   const { data: w, isPending, isError, error, refetch } = useMyProfile();
   const setPhoto = useSetProfilePhoto();
   const addPhoto = useAddPortfolioPhoto();
@@ -31,8 +35,8 @@ export default function Profile() {
   const [skillToRemove, setSkillToRemove] = useState<{ id: string; name: string } | null>(null);
   const [photoToRemove, setPhotoToRemove] = useState<string | null>(null);
 
-  if (isPending) return (<><PageHeader title="My profile" /><ProfileSkeleton /></>);
-  if (isError) return (<><PageHeader title="My profile" /><ErrorRetry text={errorMessage(error)} onRetry={() => void refetch()} /></>);
+  if (isPending) return (<><PageHeader title={t("worker.profile.title")} /><ProfileSkeleton /></>);
+  if (isError) return (<><PageHeader title={t("worker.profile.title")} /><ErrorRetry text={errorMessage(error)} onRetry={() => void refetch()} /></>);
 
   const upload = async (file: File, send: (blob: Blob) => Promise<unknown>): Promise<void> => {
     if (!file.type.startsWith("image/")) {
@@ -41,7 +45,7 @@ export default function Profile() {
     }
     try {
       await send(await prepareImage(file));
-      toast.success("Photo saved");
+      toast.success(t("worker.profile.photoSaved"));
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -52,7 +56,7 @@ export default function Profile() {
 
   return (
     <>
-      <PageHeader title="My profile" />
+      <PageHeader title={t("worker.profile.title")} />
       <div className="space-y-6 p-4">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="relative">
@@ -61,7 +65,7 @@ export default function Profile() {
             )}
             <input ref={photoInput} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f, setPhoto.mutateAsync); }} />
-            <button type="button" aria-label="Change photo" disabled={setPhoto.isPending} onClick={() => photoInput.current?.click()}
+            <button type="button" aria-label={t("worker.profile.changePhoto")} disabled={setPhoto.isPending} onClick={() => photoInput.current?.click()}
               className="absolute bottom-0 right-0 grid h-12 w-12 place-items-center rounded-full border-4 border-background bg-primary text-primary-foreground disabled:opacity-60">
               <Camera className="h-5 w-5" />
             </button>
@@ -71,78 +75,78 @@ export default function Profile() {
         </div>
 
         <StatusBanner visible={w.visibleToEmployers} checklist={[
-          { label: "Add a photo", done: !w.missing.includes("photo") },
-          { label: "Add a short bio", done: !w.missing.includes("bio") },
-          { label: "Choose your main skill", done: main !== null },
-          { label: "Get your main skill verified", done: main?.status === "VERIFIED" },
+          { label: t("worker.profile.checklist.photo"), done: !w.missing.includes("photo") },
+          { label: t("worker.profile.checklist.bio"), done: !w.missing.includes("bio") },
+          { label: t("worker.profile.checklist.mainSkill"), done: main !== null },
+          { label: t("worker.profile.checklist.verified"), done: main?.status === "VERIFIED" },
         ]} />
 
         <section className="space-y-2">
-          <h3 className="text-lg font-bold">About me</h3>
-          <p className={w.bio ? "" : "text-muted-foreground"}>{w.bio || "No bio yet. Tell employers about your work."}</p>
+          <h3 className="text-lg font-bold">{t("worker.profile.aboutMe")}</h3>
+          <p className={w.bio ? "" : "text-muted-foreground"}>{w.bio || t("worker.profile.noBio")}</p>
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-lg font-bold">Main skill</h3>
+          <h3 className="text-lg font-bold">{t("worker.profile.mainSkill")}</h3>
           {main ? (
             <Link to="/worker/skill" className="flex items-center gap-3 rounded-2xl border-2 border-primary bg-secondary p-4">
               <div className="grid h-14 w-14 place-items-center rounded-xl bg-primary text-primary-foreground"><SkillIcon slug={main.skillType.slug} className="h-8 w-8" /></div>
               <div className="flex-1">
-                <p className="text-lg font-bold">{main.skillType.nameEn}</p>
-                <p className="text-sm text-muted-foreground">{main.yearsOfExperience} years</p>
-                {main.flaggedForReview && <p className="text-sm text-muted-foreground">Staff will review your new experience.</p>}
+                <p className="text-lg font-bold">{skillName(main.skillType)}</p>
+                <p className="text-sm text-muted-foreground">{t("common.years", { count: main.yearsOfExperience })}</p>
+                {main.flaggedForReview && <p className="text-sm text-muted-foreground">{t("worker.profile.staffReview")}</p>}
               </div>
               <SkillBadge status={badgeFor(main.status)} />
             </Link>
           ) : (
             <Link to="/worker/skill" className="flex h-20 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary text-lg font-bold text-primary">
-              <Plus className="h-6 w-6" />Choose your main skill
+              <Plus className="h-6 w-6" />{t("worker.profile.chooseMain")}
             </Link>
           )}
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-lg font-bold">Other skills</h3>
+          <h3 className="text-lg font-bold">{t("worker.profile.otherSkills")}</h3>
           <ul className="space-y-2">
             {w.otherSkills.map((s) => (
               <li key={s.id} className="flex items-center gap-3 rounded-2xl border p-3">
                 <SkillIcon slug={s.skillType.slug} className="text-primary" />
-                <span className="flex-1"><b>{s.skillType.nameEn}</b> · {s.yearsOfExperience} yrs</span>
+                <span className="flex-1"><b>{skillName(s.skillType)}</b> · {t("common.yearsShort", { count: s.yearsOfExperience })}</span>
                 <SkillBadge status="unverified" />
-                <button type="button" aria-label={`Remove ${s.skillType.nameEn}`} onClick={() => setSkillToRemove({ id: s.id, name: s.skillType.nameEn })}
+                <button type="button" aria-label={t("worker.profile.remove", { name: skillName(s.skillType) })} onClick={() => setSkillToRemove({ id: s.id, name: skillName(s.skillType) })}
                   className="grid h-10 w-10 place-items-center rounded-full text-muted-foreground hover:bg-muted"><X className="h-5 w-5" /></button>
               </li>
             ))}
           </ul>
-          <Link to="/worker/skills/add" className="flex h-12 items-center justify-center gap-2 rounded-2xl border-2 border-dashed font-bold text-primary"><Plus className="h-5 w-5" />Add other skill</Link>
+          <Link to="/worker/skills/add" className="flex h-12 items-center justify-center gap-2 rounded-2xl border-2 border-dashed font-bold text-primary"><Plus className="h-5 w-5" />{t("worker.profile.addOther")}</Link>
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-lg font-bold">My work photos</h3>
+          <h3 className="text-lg font-bold">{t("worker.profile.workPhotos")}</h3>
           <PhotoGrid photos={w.portfolio} editable busy={addPhoto.isPending || removePhoto.isPending}
             onAddFile={(f) => void upload(f, addPhoto.mutateAsync)} onDelete={setPhotoToRemove} />
         </section>
 
-        <Link to="/worker/ratings" className="flex h-14 items-center gap-3 rounded-2xl border px-4 font-bold"><Star className="h-5 w-5 fill-star text-star" />My ratings</Link>
-        <Link to="/worker/profile/edit" className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary text-lg font-bold text-primary-foreground"><Pencil className="h-5 w-5" />Edit profile</Link>
+        <Link to="/worker/ratings" className="flex h-14 items-center gap-3 rounded-2xl border px-4 font-bold"><Star className="h-5 w-5 fill-star text-star" />{t("worker.profile.myRatings")}</Link>
+        <Link to="/worker/profile/edit" className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary text-lg font-bold text-primary-foreground"><Pencil className="h-5 w-5" />{t("worker.profile.edit")}</Link>
       </div>
 
       <ConfirmDialog
         open={skillToRemove !== null}
         onOpenChange={(open) => !open && setSkillToRemove(null)}
-        title={`Remove ${skillToRemove?.name ?? "skill"}?`}
-        text="This skill will no longer show on your profile."
-        confirmLabel="Yes, remove it"
-        cancelLabel="Keep it"
+        title={skillToRemove ? t("worker.profile.removeTitle", { name: skillToRemove.name }) : t("worker.profile.removeTitleFallback")}
+        text={t("worker.profile.removeText")}
+        confirmLabel={t("worker.profile.removeYes")}
+        cancelLabel={t("worker.profile.keepIt")}
         onConfirm={() => skillToRemove && removeSkill.mutate(skillToRemove.id, { onError: (e) => toast.error(errorMessage(e)) })}
       />
       <ConfirmDialog
         open={photoToRemove !== null}
         onOpenChange={(open) => !open && setPhotoToRemove(null)}
-        title="Delete this photo?"
-        text="It will be removed from your profile."
-        confirmLabel="Yes, delete it"
-        cancelLabel="Keep it"
+        title={t("worker.profile.deletePhotoTitle")}
+        text={t("worker.profile.deletePhotoText")}
+        confirmLabel={t("worker.profile.deletePhotoYes")}
+        cancelLabel={t("worker.profile.keepIt")}
         onConfirm={() => photoToRemove && removePhoto.mutate(photoToRemove, { onError: (e) => toast.error(errorMessage(e)) })}
       />
     </>

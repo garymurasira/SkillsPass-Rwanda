@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/Field";
 import { FormError } from "@/components/FormError";
@@ -19,6 +21,7 @@ const digits = (v: string) => v.replace(/\D/g, "").slice(0, 6);
 
 // Staff sign in on one screen: phone, then the SMS code and the authenticator code together.
 export default function AdminLogin() {
+  const { t } = useTranslation();
   const { signIn } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [phone, setPhone] = useState("");
@@ -73,29 +76,29 @@ export default function AdminLogin() {
           onSubmit={(e) => { e.preventDefault(); void (step === 1 ? requestCode() : submit()); }}
           className="w-full max-w-md space-y-5 rounded-3xl border bg-card p-6 shadow-sm"
         >
-          <Logo />
-          <h1 className="flex items-center gap-2 text-2xl font-bold"><ShieldCheck className="h-6 w-6 text-primary" />Staff sign in</h1>
+          <div className="flex items-center justify-between gap-2"><Logo /><LanguageSwitcher /></div>
+          <h1 className="flex items-center gap-2 text-2xl font-bold"><ShieldCheck className="h-6 w-6 text-primary" />{t("auth.admin.title")}</h1>
           <FormError>{formError}</FormError>
 
-          <Field label="Phone number" type="tel" autoComplete="tel" value={phone} disabled={step === 2} error={phoneError}
+          <Field label={t("common.phoneNumber")} type="tel" autoComplete="tel" value={phone} disabled={step === 2} error={phoneError}
             onChange={(v) => { setPhone(v); setPhoneServerError(undefined); }} />
 
           {step === 1 ? (
             <Button type="submit" size="lg" className="h-12 w-full" disabled={sendCode.isPending}>
-              {sendCode.isPending ? "Sending…" : "Send SMS code"}
+              {sendCode.isPending ? t("common.sending") : t("auth.admin.sendSms")}
             </Button>
           ) : (
             <>
-              <Field label="SMS code" placeholder="6 digits" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={smsCode} onChange={(v) => setSmsCode(digits(v))} />
-              <Field label="Authenticator code" placeholder="6 digits" inputMode="numeric" autoComplete="off" maxLength={6} value={totp} onChange={(v) => setTotp(digits(v))} />
+              <Field label={t("auth.admin.smsCode")} placeholder={t("auth.admin.sixDigits")} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={smsCode} onChange={(v) => setSmsCode(digits(v))} />
+              <Field label={t("auth.admin.authCode")} placeholder={t("auth.admin.sixDigits")} inputMode="numeric" autoComplete="off" maxLength={6} value={totp} onChange={(v) => setTotp(digits(v))} />
               <Button type="submit" size="lg" className="h-12 w-full" disabled={smsCode.length < 6 || totp.length < 6 || signInMutation.isPending}>
-                {signInMutation.isPending ? "Signing in…" : "Sign in"}
+                {signInMutation.isPending ? t("auth.admin.signingIn") : t("auth.admin.signIn")}
               </Button>
               <div className="flex justify-between text-sm">
                 <button type="button" disabled={left > 0 || sendCode.isPending} onClick={() => void requestCode()} className="h-10 font-bold text-primary disabled:text-muted-foreground">
-                  {left > 0 ? `Send a new SMS code in ${left}s` : "Send a new SMS code"}
+                  {left > 0 ? t("auth.admin.newSmsIn", { seconds: left }) : t("auth.admin.newSms")}
                 </button>
-                <button type="button" onClick={() => { setStep(1); setFormError(null); }} className="h-10 font-bold text-primary underline">Change number</button>
+                <button type="button" onClick={() => { setStep(1); setFormError(null); }} className="h-10 font-bold text-primary underline">{t("auth.admin.changeNumber")}</button>
               </div>
             </>
           )}

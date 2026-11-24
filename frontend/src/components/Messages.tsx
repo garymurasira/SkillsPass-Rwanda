@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Building2, MessageCircle, Send, UserRound } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { assetUrl } from "@/lib/api/config";
 import { errorMessage } from "@/lib/api/error-messages";
 import { hasErrorCode } from "@/lib/api/errors";
@@ -27,13 +28,14 @@ function Avatar({ peer, className = "h-14 w-14" }: { peer: Peer; className?: str
 const peerTitle = (role: Role, peer: Peer) => (role === "worker" ? (peer.companyName ?? peer.name) : peer.name);
 
 export function ConversationList({ role, activeId }: { role: Role; activeId?: string | undefined }) {
+  const { t } = useTranslation();
   const q = useConversations();
   const conversations = q.data?.pages.flatMap((p) => p.items) ?? [];
 
   if (q.isPending) return <div className="p-4"><ListSkeleton rows={4} /></div>;
   if (q.isError) return <ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} />;
   if (conversations.length === 0) {
-    return <EmptyState icon={MessageCircle} title="No messages yet" text={role === "worker" ? "When an employer writes to you, it shows here." : "Open a worker profile and tap Send message."} />;
+    return <EmptyState icon={MessageCircle} title={t("messages.emptyTitle")} text={role === "worker" ? t("messages.emptyWorker") : t("messages.emptyEmployer")} />;
   }
 
   return (
@@ -50,11 +52,11 @@ export function ConversationList({ role, activeId }: { role: Role; activeId?: st
                   <span className="shrink-0 text-sm text-muted-foreground">{formatMessageDay(c.lastMessage.sentAt)}</span>
                 </div>
                 <p className={`truncate text-sm ${c.unreadCount ? "font-bold" : "text-muted-foreground"}`}>
-                  {c.lastMessage.fromMe && "You: "}{c.lastMessage.content}
+                  {c.lastMessage.fromMe && t("messages.you")}{c.lastMessage.content}
                 </p>
               </div>
               {c.unreadCount > 0 && (
-                <span className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground" aria-label={`${c.unreadCount} unread`}>{c.unreadCount}</span>
+                <span className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground" aria-label={t("common.unread", { count: c.unreadCount })}>{c.unreadCount}</span>
               )}
             </Link>
           </li>
@@ -63,7 +65,7 @@ export function ConversationList({ role, activeId }: { role: Role; activeId?: st
       {q.hasNextPage && (
         <div className="p-4">
           <Button variant="outline" className="h-12 w-full" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
-            {q.isFetchingNextPage ? "Loading…" : "Load more"}
+            {q.isFetchingNextPage ? t("common.loading") : t("messages.loadMore")}
           </Button>
         </div>
       )}
@@ -73,6 +75,7 @@ export function ConversationList({ role, activeId }: { role: Role; activeId?: st
 
 /** Header, messages and the box to write in, for the conversation with one person. */
 export function ThreadView({ peerId, role }: { peerId: string; role: Role }) {
+  const { t } = useTranslation();
   const q = useThread(peerId);
   const send = useSendMessage(peerId);
   const older = useLoadOlder(peerId);
@@ -92,17 +95,17 @@ export function ThreadView({ peerId, role }: { peerId: string; role: Role }) {
   // A different conversation starts at the bottom again.
   useEffect(() => { stickToBottom.current = true; setText(""); }, [peerId]);
 
-  const title = q.data ? peerTitle(role, q.data.peer) : "Chat";
+  const title = q.data ? peerTitle(role, q.data.peer) : t("messages.chat");
   // On a laptop the employer sees the list beside the chat, so the back arrow is only needed on phones.
   const backMode = role === "employer" ? "mobile" : true;
 
-  if (q.isPending) return (<><PageHeader title="Chat" back={backMode} /><div className="p-4"><ListSkeleton rows={3} /></div></>);
+  if (q.isPending) return (<><PageHeader title={t("messages.chat")} back={backMode} /><div className="p-4"><ListSkeleton rows={3} /></div></>);
   if (!q.data) {
     return (
       <>
-        <PageHeader title="Chat" back={backMode} />
+        <PageHeader title={t("messages.chat")} back={backMode} />
         {hasErrorCode(q.error, "PEER_NOT_FOUND")
-          ? <EmptyState icon={MessageCircle} title="We couldn't find this conversation" />
+          ? <EmptyState icon={MessageCircle} title={t("messages.notFound")} />
           : <ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} />}
       </>
     );
@@ -126,12 +129,12 @@ export function ThreadView({ peerId, role }: { peerId: string; role: Role }) {
           onScroll={(e) => { const el = e.currentTarget; stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>
           {q.data.hasOlder && (
             <Button variant="outline" className="h-11 w-full" disabled={older.isPending} onClick={() => { stickToBottom.current = false; older.mutate(); }}>
-              {older.isPending ? "Loading…" : "Show earlier messages"}
+              {older.isPending ? t("common.loading") : t("messages.showEarlier")}
             </Button>
           )}
           {items.length === 0 && (
             <p className="py-10 text-center text-muted-foreground">
-              {role === "employer" ? `No messages yet. Say hello to ${q.data.peer.name}.` : "No messages yet."}
+              {role === "employer" ? t("messages.sayHello", { name: q.data.peer.name }) : t("messages.noneYet")}
             </p>
           )}
           {items.map((m) => (
@@ -144,10 +147,10 @@ export function ThreadView({ peerId, role }: { peerId: string; role: Role }) {
           ))}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="sticky bottom-0 flex gap-2 border-t bg-background p-3">
-          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={MAX_MESSAGE_LENGTH} aria-label="Message"
-            placeholder={role === "worker" ? "Write a reply" : "Write a message"}
+          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={MAX_MESSAGE_LENGTH} aria-label={t("messages.messageLabel")}
+            placeholder={role === "worker" ? t("messages.placeholderWorker") : t("messages.placeholderEmployer")}
             className="h-14 min-w-0 flex-1 rounded-full border bg-card px-5 text-base outline-none focus:border-primary" />
-          <button type="submit" aria-label="Send" disabled={!text.trim() || send.isPending}
+          <button type="submit" aria-label={t("messages.send")} disabled={!text.trim() || send.isPending}
             className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-50">
             <Send className="h-6 w-6" />
           </button>

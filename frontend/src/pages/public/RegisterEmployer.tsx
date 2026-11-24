@@ -1,14 +1,17 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/Field";
 import { FormError } from "@/components/FormError";
 import { LocationSelect } from "@/components/LocationSelect";
+import { currentLanguage } from "@/lib/i18n";
 import { employerRegistrationSchema, fieldErrors } from "@/lib/validation";
 import { AuthLayout } from "./AuthLayout";
 import { useRegistration } from "./useRegistration";
 
 export default function RegisterEmployer() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ name: "", phone: "", companyName: "", province: "", district: "", contactInfo: "" });
   const [showErrors, setShowErrors] = useState(false);
   const { submit, serverErrors, formError, busy } = useRegistration({
@@ -20,7 +23,7 @@ export default function RegisterEmployer() {
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
 
   return (
-    <AuthLayout title="Register as employer">
+    <AuthLayout title={t("auth.registerEmployer.title")}>
       <form
         className="space-y-5"
         noValidate
@@ -32,7 +35,7 @@ export default function RegisterEmployer() {
             role: "EMPLOYER",
             name: form.name.trim(),
             phone: form.phone.trim(),
-            language: "EN",
+            language: currentLanguage(),
             region: form.province,
             city: form.district,
             companyName: form.companyName.trim(),
@@ -41,19 +44,19 @@ export default function RegisterEmployer() {
         }}
       >
         <FormError>{formError}</FormError>
-        <Field label="Your name" autoComplete="name" value={form.name} onChange={(name) => set({ name })} error={errors.name} />
-        <Field label="Phone number" type="tel" placeholder="078 000 0000" autoComplete="tel" value={form.phone} onChange={(phone) => set({ phone })} error={errors.phone} />
-        <Field label="Company name" autoComplete="organization" value={form.companyName} onChange={(companyName) => set({ companyName })} error={errors.companyName} />
+        <Field label={t("auth.registerEmployer.name")} autoComplete="name" value={form.name} onChange={(name) => set({ name })} error={errors.name} />
+        <Field label={t("common.phoneNumber")} type="tel" placeholder={t("auth.phonePlaceholder")} autoComplete="tel" value={form.phone} onChange={(phone) => set({ phone })} error={errors.phone} />
+        <Field label={t("auth.registerEmployer.company")} autoComplete="organization" value={form.companyName} onChange={(companyName) => set({ companyName })} error={errors.companyName} />
         <LocationSelect
           province={form.province}
           district={form.district}
           onChange={(province, district) => set({ province, district })}
           errors={{ province: errors.province, district: errors.district }}
         />
-        <Field label="Contact info" placeholder="Email or office address" value={form.contactInfo} onChange={(contactInfo) => set({ contactInfo })} error={errors.contactInfo} />
-        <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={busy}>{busy ? "Sending…" : "Send me a code"}</Button>
+        <Field label={t("auth.registerEmployer.contact")} placeholder={t("auth.registerEmployer.contactPlaceholder")} value={form.contactInfo} onChange={(contactInfo) => set({ contactInfo })} error={errors.contactInfo} />
+        <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={busy}>{busy ? t("common.sending") : t("common.sendCode")}</Button>
       </form>
-      <p className="text-center">Already registered? <Link to="/login" className="font-bold text-primary underline underline-offset-4">Sign in</Link></p>
+      <p className="text-center">{t("auth.landing.alreadyRegistered")} <Link to="/login" className="font-bold text-primary underline underline-offset-4">{t("auth.landing.signIn")}</Link></p>
     </AuthLayout>
   );
 }

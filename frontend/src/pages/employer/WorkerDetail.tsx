@@ -3,6 +3,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { MapPin, MessageCircle, Phone, Play, UserRound, UserX } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { useSkillName } from "@/lib/i18n/hooks";
 import { PageHeader } from "@/components/PageHeader";
 import { SkillBadge } from "@/components/SkillBadge";
 import { SkillIcon } from "@/components/SkillIcon";
@@ -21,32 +23,34 @@ import { createJob } from "@/lib/api/jobs";
 import { useWorkerDetail } from "@/lib/queries/employer";
 
 export default function WorkerDetail({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const skillName = useSkillName();
   const navigate = useNavigate();
   const q = useWorkerDetail(id);
   const [viewer, setViewer] = useState<number | null>(null);
   const startJob = useMutation({
     mutationFn: () => createJob(id),
     onSuccess: () => {
-      toast.success("Job started");
+      toast.success(t("employer.detail.jobStarted"));
       navigate({ to: "/employer/jobs" });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  if (q.isPending) return (<><PageHeader title="Worker" back /><ProfileSkeleton /></>);
+  if (q.isPending) return (<><PageHeader title={t("employer.detail.title")} back /><ProfileSkeleton /></>);
 
   if (q.isError) {
     // A worker who lost verification (or never had it) looks the same as one who doesn't exist.
     if (hasErrorCode(q.error, "WORKER_NOT_FOUND", "NOT_FOUND")) {
       return (
         <>
-          <PageHeader title="Worker" back />
-          <EmptyState icon={UserX} title="This worker is no longer available" text="They may have changed their skill or left SkillsPass."
-            action={<Link to="/employer" className="flex h-12 items-center rounded-xl bg-primary px-6 font-bold text-primary-foreground">Find other workers</Link>} />
+          <PageHeader title={t("employer.detail.title")} back />
+          <EmptyState icon={UserX} title={t("employer.detail.unavailableTitle")} text={t("employer.detail.unavailableText")}
+            action={<Link to="/employer" className="flex h-12 items-center rounded-xl bg-primary px-6 font-bold text-primary-foreground">{t("employer.detail.findOthers")}</Link>} />
         </>
       );
     }
-    return (<><PageHeader title="Worker" back /><ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} /></>);
+    return (<><PageHeader title={t("employer.detail.title")} back /><ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} /></>);
   }
 
   const w = q.data;
@@ -68,50 +72,50 @@ export default function WorkerDetail({ id }: { id: string }) {
           </div>
           <div className="flex items-center gap-3 rounded-2xl bg-secondary p-4">
             <SkillIcon slug={w.mainSkill.skillType.slug} className="h-8 w-8 text-primary" />
-            <div className="flex-1"><p className="font-bold">{w.mainSkill.skillType.nameEn}</p><p className="text-sm text-muted-foreground">{w.mainSkill.yearsOfExperience} years</p></div>
+            <div className="flex-1"><p className="font-bold">{skillName(w.mainSkill.skillType)}</p><p className="text-sm text-muted-foreground">{t("common.years", { count: w.mainSkill.yearsOfExperience })}</p></div>
             {w.mainSkill.verified && <SkillBadge status="verified" />}
           </div>
           <div className="sticky bottom-16 z-20 -mx-4 flex gap-2 border-t bg-background p-3 md:static md:mx-0 md:flex-wrap md:border-0 md:p-0">
             <button type="button" onClick={() => navigate({ to: "/employer/messages/$id", params: { id: w.id } })} className="flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary font-bold text-primary-foreground md:basis-full">
-              <MessageCircle className="h-5 w-5" />Send message
+              <MessageCircle className="h-5 w-5" />{t("employer.detail.sendMessage")}
             </button>
             <button type="button" disabled={startJob.isPending} onClick={() => startJob.mutate()} className="flex h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border-2 border-primary font-bold text-primary disabled:opacity-60">
-              <Play className="h-5 w-5" />{startJob.isPending ? "Starting…" : "Start job"}
+              <Play className="h-5 w-5" />{startJob.isPending ? t("employer.detail.starting") : t("employer.detail.startJob")}
             </button>
             {w.phone && (
-              <a href={`tel:${w.phone.replace(/\s/g, "")}`} aria-label="Call" className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground"><Phone className="h-5 w-5" /></a>
+              <a href={`tel:${w.phone.replace(/\s/g, "")}`} aria-label={t("employer.detail.call")} className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground"><Phone className="h-5 w-5" /></a>
             )}
             <HeartToggle workerId={w.id} isFavorite={w.isFavorite} />
           </div>
         </div>
         <div className="mt-6 space-y-6 md:mt-0">
-          <section className="space-y-2"><h3 className="text-lg font-bold">About</h3><p className={w.bio ? "" : "text-muted-foreground"}>{w.bio || "No bio yet."}</p></section>
+          <section className="space-y-2"><h3 className="text-lg font-bold">{t("employer.detail.about")}</h3><p className={w.bio ? "" : "text-muted-foreground"}>{w.bio || t("employer.detail.noBio")}</p></section>
           <section className="space-y-2">
-            <h3 className="text-lg font-bold">Work photos</h3>
-            {w.portfolio.length > 0 ? <PhotoGrid photos={w.portfolio} onOpen={setViewer} /> : <p className="text-muted-foreground">No work photos yet.</p>}
+            <h3 className="text-lg font-bold">{t("employer.detail.workPhotos")}</h3>
+            {w.portfolio.length > 0 ? <PhotoGrid photos={w.portfolio} onOpen={setViewer} /> : <p className="text-muted-foreground">{t("employer.detail.noPhotos")}</p>}
           </section>
           {w.otherSkills.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-lg font-bold">Other skills</h3>
+              <h3 className="text-lg font-bold">{t("employer.detail.otherSkills")}</h3>
               {w.otherSkills.map((s) => (
                 <div key={s.skillType.id} className="flex items-center gap-3 rounded-2xl border p-3">
-                  <SkillIcon slug={s.skillType.slug} className="text-primary" /><span className="flex-1"><b>{s.skillType.nameEn}</b> · {s.yearsOfExperience} yrs</span><SkillBadge status="unverified" />
+                  <SkillIcon slug={s.skillType.slug} className="text-primary" /><span className="flex-1"><b>{skillName(s.skillType)}</b> · {t("common.yearsShort", { count: s.yearsOfExperience })}</span><SkillBadge status="unverified" />
                 </div>
               ))}
             </section>
           )}
           <section className="space-y-3">
-            <h3 className="text-lg font-bold">Ratings</h3>
+            <h3 className="text-lg font-bold">{t("employer.detail.ratings")}</h3>
             {w.rating.count > 0 && w.rating.average !== null ? (
-              <div className="flex items-center gap-3 rounded-2xl bg-secondary p-4"><span className="text-3xl font-bold">{w.rating.average.toFixed(1)}</span><StarRating value={w.rating.average} /><span className="text-muted-foreground">{w.rating.count} {w.rating.count === 1 ? "rating" : "ratings"}</span></div>
-            ) : <p className="text-muted-foreground">No ratings yet</p>}
+              <div className="flex items-center gap-3 rounded-2xl bg-secondary p-4"><span className="text-3xl font-bold">{w.rating.average.toFixed(1)}</span><StarRating value={w.rating.average} /><span className="text-muted-foreground">{t("worker.ratings.count", { count: w.rating.count })}</span></div>
+            ) : <p className="text-muted-foreground">{t("common.noRatingsYet")}</p>}
             <ReviewList reviews={w.reviews} />
           </section>
         </div>
       </div>
       <Dialog open={viewer !== null} onOpenChange={(o) => !o && setViewer(null)}>
         <DialogContent className="h-[100dvh] max-w-none place-items-center rounded-none border-0 bg-foreground p-2 sm:max-w-none">
-          <DialogTitle className="sr-only">Work photo</DialogTitle>
+          <DialogTitle className="sr-only">{t("employer.detail.viewerTitle")}</DialogTitle>
           {viewer !== null && <img src={assetUrl(w.portfolio[viewer]?.url) ?? ""} alt="" className="max-h-full max-w-full object-contain" />}
         </DialogContent>
       </Dialog>

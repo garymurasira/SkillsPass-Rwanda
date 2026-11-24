@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export type Tab = { to: string; label: string; icon: LucideIcon; exact?: boolean; extra?: string[]; /** A number shown on the icon, e.g. unread messages. Hidden at 0. */ badge?: number | undefined };
 
@@ -10,9 +11,10 @@ export function useIsTabActive() {
 
 /** The little number on a tab, e.g. unread messages. */
 export function TabBadge({ count }: { count: number | undefined }) {
+  const { t } = useTranslation();
   if (!count) return null;
   return (
-    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1 text-[11px] font-bold leading-none text-destructive-foreground" aria-label={`${count} unread`}>
+    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1 text-[11px] font-bold leading-none text-destructive-foreground" aria-label={t("common.unread", { count })}>
       {count > 99 ? "99+" : count}
     </span>
   );

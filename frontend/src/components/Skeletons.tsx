@@ -1,10 +1,12 @@
+import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export { Skeleton };
 
 export function ListSkeleton({ rows = 4 }: { rows?: number }) {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-3" aria-label="Loading">
+    <div className="space-y-3" aria-label={t("common.loading")}>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 rounded-2xl border p-4">
           <Skeleton className="h-14 w-14 rounded-full" />
@@ -19,8 +21,9 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 export function ProfileSkeleton() {
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center gap-4 p-4" aria-label="Loading">
+    <div className="flex flex-col items-center gap-4 p-4" aria-label={t("common.loading")}>
       <Skeleton className="h-32 w-32 rounded-full" />
       <Skeleton className="h-6 w-48" />
       <Skeleton className="h-24 w-full rounded-2xl" />

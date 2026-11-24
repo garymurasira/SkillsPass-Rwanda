@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronDown, SlidersHorizontal, SearchX } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/PageHeader";
 import { WorkerCard } from "@/components/WorkerCard";
 import { SkillIcon } from "@/components/SkillIcon";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { errorMessage } from "@/lib/api/error-messages";
 import type { SearchFilters } from "@/lib/api/employer";
+import { useSkillName } from "@/lib/i18n/hooks";
 import { useWorkerSearch } from "@/lib/queries/employer";
 import { useSkillTypes } from "@/lib/queries/worker";
 
@@ -31,6 +33,8 @@ function useFilters() {
 }
 
 function Filters() {
+  const { t } = useTranslation();
+  const skillName = useSkillName();
   const { filters, update } = useFilters();
   const skills = useSkillTypes();
   const active = Object.keys(filters).length > 0;
@@ -38,12 +42,12 @@ function Filters() {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="font-bold">Skill</p>
+        <p className="font-bold">{t("employer.find.skill")}</p>
         <div className="flex flex-wrap gap-2">
           {skills.data?.map((s) => (
             <button key={s.id} type="button" onClick={() => update({ skill: filters.skill === s.slug ? undefined : s.slug })} aria-pressed={filters.skill === s.slug}
               className={`flex h-12 items-center gap-2 rounded-full border-2 px-3 text-sm font-bold ${filters.skill === s.slug ? "border-primary bg-secondary text-primary" : "bg-card"}`}>
-              <SkillIcon slug={s.slug} className="h-5 w-5" />{s.nameEn}
+              <SkillIcon slug={s.slug} className="h-5 w-5" />{skillName(s)}
             </button>
           ))}
           {skills.isPending && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-28 rounded-full" />)}
@@ -55,13 +59,13 @@ function Filters() {
         onChange={(region, city) => update({ region: region || undefined, city: city || undefined })}
       />
       <div className="space-y-1">
-        <p className="font-bold">Minimum rating</p>
+        <p className="font-bold">{t("employer.find.minRating")}</p>
         {/* Tap the chosen star again to remove the filter. */}
         <StarRating value={filters.minRating ?? 0} onChange={(n) => update({ minRating: n === filters.minRating ? undefined : n })} />
       </div>
       {active && (
         <Button variant="outline" className="h-12 w-full" onClick={() => update({ skill: undefined, region: undefined, city: undefined, minRating: undefined })}>
-          Clear filters
+          {t("employer.find.clear")}
         </Button>
       )}
     </div>
@@ -69,8 +73,9 @@ function Filters() {
 }
 
 function GridSkeleton() {
+  const { t } = useTranslation();
   return (
-    <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3" aria-label="Loading">
+    <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3" aria-label={t("common.loading")}>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex gap-3 rounded-2xl border p-3">
           <Skeleton className="h-20 w-20 rounded-xl" />
@@ -82,6 +87,7 @@ function GridSkeleton() {
 }
 
 export default function Find() {
+  const { t } = useTranslation();
   const { filters } = useFilters();
   const [open, setOpen] = useState(false);
   const q = useWorkerSearch(filters);
@@ -90,15 +96,15 @@ export default function Find() {
 
   return (
     <>
-      <PageHeader title="Find verified workers" />
+      <PageHeader title={t("employer.find.title")} />
       <div className="flex flex-1 flex-col gap-4 p-4 md:flex-row md:items-start md:gap-6 md:p-6">
         <aside className="hidden w-72 shrink-0 rounded-2xl border bg-card p-4 md:sticky md:top-20 md:block">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><SlidersHorizontal className="h-5 w-5" />Filters</h2>
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><SlidersHorizontal className="h-5 w-5" />{t("employer.find.filters")}</h2>
           <Filters />
         </aside>
         <Collapsible open={open} onOpenChange={setOpen} className="rounded-2xl border bg-card md:hidden">
           <CollapsibleTrigger className="flex h-14 w-full items-center gap-2 px-4 font-bold">
-            <SlidersHorizontal className="h-5 w-5 text-primary" /><span className="flex-1 text-left">Filters</span>
+            <SlidersHorizontal className="h-5 w-5 text-primary" /><span className="flex-1 text-left">{t("employer.find.filters")}</span>
             <ChevronDown className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`} />
           </CollapsibleTrigger>
           <CollapsibleContent className="border-t p-4"><Filters /></CollapsibleContent>
@@ -109,16 +115,16 @@ export default function Find() {
           ) : q.isError ? (
             <ErrorRetry text={errorMessage(q.error)} onRetry={() => void q.refetch()} />
           ) : workers.length === 0 ? (
-            <EmptyState icon={SearchX} title="No workers found" text="No verified workers match your search yet. Try fewer filters." />
+            <EmptyState icon={SearchX} title={t("employer.find.emptyTitle")} text={t("employer.find.emptyText")} />
           ) : (
             <>
-              <p className="text-sm text-muted-foreground" aria-live="polite">{total} verified {total === 1 ? "worker" : "workers"}</p>
+              <p className="text-sm text-muted-foreground" aria-live="polite">{t("employer.find.total", { count: total })}</p>
               <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                 {workers.map((w) => <WorkerCard key={w.id} worker={w} />)}
               </div>
               {q.hasNextPage && (
                 <Button variant="outline" size="lg" className="h-12 w-full" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
-                  {q.isFetchingNextPage ? "Loading…" : "Load more"}
+                  {q.isFetchingNextPage ? t("common.loading") : t("common.loadMore")}
                 </Button>
               )}
             </>

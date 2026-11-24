@@ -1,33 +1,39 @@
 import { z } from "zod";
+import { i18n } from "@/lib/i18n";
 import { isValidRwandanPhone, normalizePhone } from "./phone";
 
 // Client-side mirrors of the backend rules (backend/src/modules/auth/schemas.ts), so people get
 // instant feedback. The server validates again and has the final say.
 
-const required = (what: string) => `Please enter ${what}.`;
+// Messages in the schemas are translation keys: `fieldErrors` turns them into the current language.
+const msg = (key: ValidationKey) => `errors.validation.${key}`;
+type ValidationKey = keyof typeof import("@/lib/i18n/locales/errors").errors.en.validation;
 
 export const phoneSchema = z
   .string()
   .trim()
-  .min(1, required("your phone number"))
-  .refine(isValidRwandanPhone, "Enter a valid MTN or Airtel number, like 078 123 4567.");
+  .min(1, msg("phoneRequired"))
+  .refine(isValidRwandanPhone, msg("phoneInvalid"));
 
-const name = z.string().trim().min(2, "Your name needs at least 2 letters.").max(100, "That name is too long.");
-const province = z.string().min(1, "Please choose a province.");
-const district = z.string().min(1, "Please choose a district.");
+const name = z.string().trim().min(2, msg("nameShort")).max(100, msg("nameLong"));
+const province = z.string().min(1, msg("province"));
+const district = z.string().min(1, msg("district"));
 
 export const workerRegistrationSchema = z.object({ name, phone: phoneSchema, province, district });
 
 export const employerRegistrationSchema = z.object({
   name,
   phone: phoneSchema,
-  companyName: z.string().trim().min(2, "The company name needs at least 2 letters.").max(120, "That name is too long."),
+  companyName: z.string().trim().min(2, msg("companyShort")).max(120, msg("nameLong")),
   province,
   district,
-  contactInfo: z.string().trim().min(3, "Please enter an email or address.").max(200, "That is too long."),
+  contactInfo: z.string().trim().min(3, msg("contactShort")).max(200, msg("contactLong")),
 });
 
-export const otpCodeSchema = z.string().regex(/^\d{6}$/, "The code has 6 digits.");
+export const otpCodeSchema = z.string().regex(/^\d{6}$/, msg("code"));
+
+/** Schema messages are keys; anything else (a message written by hand) is shown as it is. */
+const translate = (message: string) => (i18n.exists(message) ? i18n.t(message as "errors.generic") : message);
 
 /** First error message per field, e.g. { phone: "Enter a valid ..." }. Empty object means valid. */
 export function fieldErrors<T extends Record<string, unknown>>(
@@ -39,7 +45,7 @@ export function fieldErrors<T extends Record<string, unknown>>(
   const out: Record<string, string> = {};
   for (const issue of result.error.issues) {
     const key = String(issue.path[0] ?? "");
-    if (key && !(key in out)) out[key] = issue.message;
+    if (key && !(key in out)) out[key] = translate(issue.message);
   }
   return out as Partial<Record<keyof T & string, string>>;
 }
@@ -63,15 +69,15 @@ export function referenceErrors(refs: ReferenceDraft[]): ReferenceErrors {
   const rows = refs.map((r) => {
     const row: { name?: string; phone?: string } = {};
     const name = r.name.trim();
-    if (name.length < 2) row.name = "Please enter their name.";
-    else if (name.length > 100) row.name = "That name is too long.";
-    if (!isValidRwandanPhone(r.phone)) row.phone = "Enter a valid MTN or Airtel number, like 078 123 4567.";
+    if (name.length < 2) row.name = i18n.t("errors.validation.refName");
+    else if (name.length > 100) row.name = i18n.t("errors.validation.nameLong");
+    if (!isValidRwandanPhone(r.phone)) row.phone = i18n.t("errors.validation.phoneInvalid");
     return row;
   });
 
   const valid = refs.filter((_, i) => !rows[i]?.phone).map((r) => normalizePhone(r.phone));
   const out: ReferenceErrors = { rows };
-  if (new Set(valid).size < valid.length) out.form = "Each person needs a different phone number.";
+  if (new Set(valid).size < valid.length) out.form = i18n.t("errors.validation.refDuplicate");
   return out;
 }
 
