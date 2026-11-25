@@ -2357,6 +2357,11 @@ export interface components {
                 "application/json": {
                     /** @example OTP_SENT */
                     message?: string;
+                    /**
+                     * @description The 6-digit code. Only present when the server runs with `DEMO_MODE=true` (school demonstration); never in normal use.
+                     * @example 482913
+                     */
+                    demoCode?: string;
                 };
             };
         };

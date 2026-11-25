@@ -11,7 +11,7 @@ export async function startRegistration(input: RegisterInput) {
   const exists = await prisma.user.findUnique({ where: { phoneHash: hashPhone(input.phone) } });
   if (exists) throw new AppError(409, 'PHONE_TAKEN');
   // Nothing is created until the phone number is proven with the OTP.
-  await issueOtp(input.phone, 'REGISTER', input, input.language);
+  return issueOtp(input.phone, 'REGISTER', input, input.language);
 }
 
 export async function completeRegistration(phone: string, code: string) {
@@ -52,7 +52,7 @@ export async function completeRegistration(phone: string, code: string) {
 export async function startLogin(phone: string) {
   const user = await prisma.user.findUnique({ where: { phoneHash: hashPhone(phone) } });
   if (!user) throw new AppError(404, 'USER_NOT_FOUND');
-  await issueOtp(phone, 'LOGIN', undefined, user.language);
+  return issueOtp(phone, 'LOGIN', undefined, user.language);
 }
 
 export async function completeLogin(phone: string, code: string, totpCode?: string) {

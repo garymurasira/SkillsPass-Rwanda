@@ -51,15 +51,18 @@ export type RegisterBody =
       contactInfo: string;
     };
 
+/** `demoCode` is only present when the server runs in demo mode (school demonstration). */
+export type OtpSent = { message: string; demoCode?: string | undefined };
+
 /** Step 1 of sign-up: validates the details and texts a code. Creates nothing yet. */
 export const startRegistration = (body: RegisterBody) =>
-  api.post<{ message: string }>("/auth/register", body, { auth: false });
+  api.post<OtpSent>("/auth/register", body, { auth: false });
 
 /** Step 2 of sign-up: the code proves the phone number, then the account is created. */
 export const verifyRegistration = (phone: string, code: string) =>
   api.post<AuthResult>("/auth/register/verify", { phone, code }, { auth: false });
 
-export const startLogin = (phone: string) => api.post<{ message: string }>("/auth/login", { phone }, { auth: false });
+export const startLogin = (phone: string) => api.post<OtpSent>("/auth/login", { phone }, { auth: false });
 
 /** `totpCode` is the authenticator code, required for staff (admin) accounts only. */
 export const verifyLogin = (phone: string, code: string, totpCode?: string) =>

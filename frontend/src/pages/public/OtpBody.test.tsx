@@ -36,4 +36,18 @@ describe("OtpBody", () => {
     render(<OtpBody onSubmit={async () => null} onResend={async () => null} />);
     expect(screen.getByRole("button", { name: /Resend code in/ })).toBeDisabled();
   });
+
+  it("shows the demo code and uses it in one tap when the server returned one", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(null);
+    render(<OtpBody onSubmit={onSubmit} demoCode="482913" />);
+    expect(screen.getByText("DEMO MODE · no SMS sent")).toBeInTheDocument();
+    expect(screen.getByText("482913")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use this code" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("482913"));
+  });
+
+  it("shows no demo card in normal use", () => {
+    render(<OtpBody onSubmit={async () => null} />);
+    expect(screen.queryByText(/DEMO MODE/)).not.toBeInTheDocument();
+  });
 });

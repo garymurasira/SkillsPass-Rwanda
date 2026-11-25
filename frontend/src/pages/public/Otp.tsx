@@ -4,13 +4,14 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/FormError";
+import { DemoCodeCard } from "@/components/DemoCodeCard";
 import { OtpInput } from "@/components/OtpInput";
 import { useCountdown } from "@/hooks/use-countdown";
 import { startLogin, startRegistration, verifyLogin, verifyRegistration } from "@/lib/api/auth";
 import { errorMessage } from "@/lib/api/error-messages";
 import { hasErrorCode } from "@/lib/api/errors";
 import { useAuth } from "@/lib/auth";
-import { clearPending, readPending, type PendingAuth } from "@/lib/auth/pending";
+import { clearPending, readPending, savePending, type PendingAuth } from "@/lib/auth/pending";
 import { AuthLayout } from "./AuthLayout";
 
 type OtpBodyProps = {
@@ -21,19 +22,21 @@ type OtpBodyProps = {
   wrongNumberTo?: string;
   /** Use instead of `wrongNumberTo` when "Wrong number?" should act in place (e.g. go back a step). */
   onWrongNumber?: () => void;
+  /** Demo mode only: the code the server returned instead of (as well as) the SMS. */
+  demoCode?: string | undefined;
 };
 
-export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongNumber }: OtpBodyProps) {
+export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongNumber, demoCode }: OtpBodyProps) {
   const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { left, restart } = useCountdown(60);
 
-  async function submit() {
+  async function submit(codeToSend = code) {
     setBusy(true);
     setError(null);
-    const message = await onSubmit(code);
+    const message = await onSubmit(codeToSend);
     setBusy(false);
     if (message) {
       setError(message);
@@ -52,6 +55,7 @@ export function OtpBody({ onSubmit, onResend, wrongNumberTo = "/login", onWrongN
   return (
     <div className="space-y-6">
       <p className="text-center text-lg">{t("auth.otp.intro")}</p>
+      {demoCode && <DemoCodeCard code={demoCode} disabled={busy} onUse={() => { setCode(demoCode); void submit(demoCode); }} />}
       <FormError>{error}</FormError>
       <OtpInput value={code} onChange={setCode} />
       <Button size="lg" className="h-14 w-full text-lg" disabled={code.length < 6 || busy} onClick={() => void submit()}>
@@ -109,8 +113,10 @@ export default function Otp() {
   async function onResend(): Promise<string | null> {
     if (!pending) return null;
     try {
-      if (pending.purpose === "REGISTER") await startRegistration(pending.form);
-      else await startLogin(pending.phone);
+      const sent = pending.purpose === "REGISTER" ? await startRegistration(pending.form) : await startLogin(pending.phone);
+      const next: PendingAuth = { ...pending, demoCode: sent.demoCode };
+      savePending(next);
+      setPending(next);
       return null;
     } catch (e) {
       return errorMessage(e);
@@ -119,7 +125,7 @@ export default function Otp() {
 
   return (
     <AuthLayout title={t("auth.otp.title")}>
-      <OtpBody onSubmit={onSubmit} onResend={onResend} wrongNumberTo={wrongNumberTo} />
+      <OtpBody onSubmit={onSubmit} onResend={onResend} wrongNumberTo={wrongNumberTo} demoCode={pending.demoCode} />
     </AuthLayout>
   );
 }

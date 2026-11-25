@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { env } from '../../config/env';
+import { isDemoMode } from './otp';
 import { asyncHandler } from '../../shared/async-handler';
 import { requireAuth } from './middleware';
 import { revokeRefreshToken, rotateRefreshToken } from './tokens';
@@ -16,10 +17,13 @@ import * as service from './service';
 
 export const authRouter = Router();
 
+// In demo mode (school demo only) the code is returned too, so the app can show it instead of an SMS.
+const otpSent = (code: string) => ({ message: 'OTP_SENT', ...(isDemoMode() ? { demoCode: code } : {}) });
+
 authRouter.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 40,
+    limit: () => (isDemoMode() ? 400 : 40), // demo mode: room for repeated takes of a recording
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: { code: 'RATE_LIMITED' } },
@@ -31,8 +35,8 @@ authRouter.use(
 authRouter.post(
   '/register',
   asyncHandler(async (req, res) => {
-    await service.startRegistration(registerSchema.parse(req.body));
-    res.status(202).json({ message: 'OTP_SENT' });
+    const code = await service.startRegistration(registerSchema.parse(req.body));
+    res.status(202).json(otpSent(code));
   }),
 );
 
@@ -47,8 +51,8 @@ authRouter.post(
 authRouter.post(
   '/login',
   asyncHandler(async (req, res) => {
-    await service.startLogin(loginSchema.parse(req.body).phone);
-    res.status(202).json({ message: 'OTP_SENT' });
+    const code = await service.startLogin(loginSchema.parse(req.body).phone);
+    res.status(202).json(otpSent(code));
   }),
 );
 

@@ -9,6 +9,7 @@ import { FormError } from "@/components/FormError";
 import { Logo } from "@/components/Logo";
 import { useCountdown } from "@/hooks/use-countdown";
 import { startLogin, verifyLogin } from "@/lib/api/auth";
+import { DemoCodeCard } from "@/components/DemoCodeCard";
 import { errorMessage, fieldError } from "@/lib/api/error-messages";
 import { hasErrorCode } from "@/lib/api/errors";
 import { RedirectIfAuthed, useAuth } from "@/lib/auth";
@@ -27,6 +28,7 @@ export default function AdminLogin() {
   const [phone, setPhone] = useState("");
   const [smsCode, setSmsCode] = useState("");
   const [totp, setTotp] = useState("");
+  const [demoCode, setDemoCode] = useState<string | undefined>();
   const [showErrors, setShowErrors] = useState(false);
   const [phoneServerError, setPhoneServerError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
@@ -43,7 +45,8 @@ export default function AdminLogin() {
     setFormError(null);
     if (fieldErrors(phoneOnly, { phone }).phone) return;
     try {
-      await sendCode.mutateAsync(phone.trim());
+      const sent = await sendCode.mutateAsync(phone.trim());
+      setDemoCode(sent.demoCode);
       setSmsCode("");
       setTotp("");
       restart();
@@ -89,6 +92,7 @@ export default function AdminLogin() {
             </Button>
           ) : (
             <>
+              {demoCode && <DemoCodeCard code={demoCode} onUse={() => setSmsCode(demoCode)} />}
               <Field label={t("auth.admin.smsCode")} placeholder={t("auth.admin.sixDigits")} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={smsCode} onChange={(v) => setSmsCode(digits(v))} />
               <Field label={t("auth.admin.authCode")} placeholder={t("auth.admin.sixDigits")} inputMode="numeric" autoComplete="off" maxLength={6} value={totp} onChange={(v) => setTotp(digits(v))} />
               <Button type="submit" size="lg" className="h-12 w-full" disabled={smsCode.length < 6 || totp.length < 6 || signInMutation.isPending}>

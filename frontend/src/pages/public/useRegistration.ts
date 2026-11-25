@@ -23,8 +23,9 @@ export function useRegistration(fieldMap: Record<string, string>) {
   async function submit(body: RegisterBody) {
     setServerErrors({});
     setFormError(null);
+    let sent: Awaited<ReturnType<typeof startRegistration>>;
     try {
-      await mutation.mutateAsync(body);
+      sent = await mutation.mutateAsync(body);
     } catch (e) {
       const mapped: Errors = {};
       // `fieldMap` translates backend field names to form field names (region -> province, city -> district).
@@ -37,7 +38,7 @@ export function useRegistration(fieldMap: Record<string, string>) {
       if (Object.keys(mapped).length === 0) setFormError(errorMessage(e));
       return;
     }
-    savePending({ purpose: "REGISTER", phone: normalizePhone(body.phone), form: body });
+    savePending({ purpose: "REGISTER", phone: normalizePhone(body.phone), form: body, demoCode: sent.demoCode });
     navigate({ to: "/otp" });
   }
 

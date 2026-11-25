@@ -24,18 +24,19 @@ services:
         sync: false
       - key: PHONE_HASH_KEY
         sync: false
-      # Africa's Talking sandbox: no real SMS. Texts show in the simulator on the Africa's Talking dashboard.
-      # To send real SMS instead, set SMS_PROVIDER=pindo (and keep the Pindo values below).
+      # eSMS Africa sandbox (test key): no real SMS. Texts show in the test logs on the eSMS dashboard.
+      # To send real SMS instead, set SMS_PROVIDER=pindo (and keep the Pindo values below) or use an esms_live_ key.
       - key: SMS_PROVIDER
-        value: africastalking
-      - key: AT_USERNAME
-        value: sandbox
-      - key: AT_API_KEY
+        value: esms
+      - key: ESMS_API_KEY
         sync: false
       - key: PINDO_API_TOKEN
         sync: false
       - key: PINDO_SENDER_ID
         sync: false
+      # School demonstration only: the app shows the sign-in code on screen so no phone is needed. Set to "false" (or remove) afterwards.
+      - key: DEMO_MODE
+        value: "true"
       - key: STORAGE_DRIVER
         value: s3
       - key: S3_REGION
