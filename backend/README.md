@@ -143,9 +143,14 @@ All settings are environment variables, checked at startup (the server refuses t
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing / hashing secrets (32+ chars) | required |
 | `DATA_ENCRYPTION_KEY` | 64 hex chars; AES-256-GCM key for phone numbers at rest | required |
 | `PHONE_HASH_KEY` | Key for the phone-number lookup hash and OTP hashes | required |
-| `UPLOAD_DIR` | Where photos are stored | `uploads` |
-| `SMS_PROVIDER` | `console` (prints OTPs) or `pindo` (real SMS) | `console` |
+| `STORAGE_DRIVER` | `local` (photos on disk) or `s3` (any S3-compatible bucket) | `local` |
+| `UPLOAD_DIR` | Where photos are stored when `STORAGE_DRIVER=local` | `uploads` |
+| `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_PUBLIC_URL` | Bucket settings; all required when `STORAGE_DRIVER=s3` (`S3_PUBLIC_URL` is the public base address photos are shown from) | none |
+| `S3_REGION` | Bucket region (Supabase needs its real one, e.g. `eu-north-1`) | `auto` |
+| `SMS_PROVIDER` | `console` (prints OTPs), `pindo` (real SMS) or `esms` (eSMS Africa) | `console` |
 | `PINDO_API_TOKEN` / `PINDO_SENDER_ID` | Pindo token and sender ID (max 11 chars); required when `SMS_PROVIDER=pindo` | none |
+| `ESMS_API_KEY` / `ESMS_SENDER_ID` | eSMS Africa key (required when `SMS_PROVIDER=esms`); a key starting `esms_test_` is a sandbox that sends nothing and shows messages in the dashboard's test logs | none |
+| `DEMO_MODE` | `true` also returns the sign-in code in the API response so the web app can show it (demonstrations only; anyone who knows a phone number can then sign in as it). Resend wait drops to 5 s | off |
 | `ENABLE_DOCS` | `true` / `false`; Swagger UI at `/api/docs` | on, except in production |
 
 ## Project layout
@@ -245,12 +250,12 @@ workers against the 2-second search target. The suite takes about 1.5 minutes.
 
 ## Known limitations and next steps
 
-- **SMS:** set `SMS_PROVIDER=pindo` (with `PINDO_API_TOKEN` and `PINDO_SENDER_ID`) to send real OTPs through
+- **SMS:** `SMS_PROVIDER=esms` with a test key simulates delivery for demos. To send real OTPs, set `SMS_PROVIDER=pindo` (with `PINDO_API_TOKEN` and `PINDO_SENDER_ID`) to send real OTPs through
   [Pindo](https://docs.pindo.ai/docs/messaging/overview). `PindoTest` is only Pindo's sample sender: register your own
   sender ID (for example `SkillsPass`) before launch. If sending fails the API returns `502 SMS_SEND_FAILED` and the
   code is discarded so the user can retry immediately.
-- **File storage:** photos go to local disk. For production implement `FileStorage` in
-  [`shared/storage.ts`](src/shared/storage.ts) for S3-compatible object storage.
+- **File storage:** photos go to local disk by default. Set `STORAGE_DRIVER=s3` (with the `S3_*` settings) to use any
+  S3-compatible bucket, which is needed on hosts that wipe their disk on restart.
 - **Rate limiting** is in memory, so it resets on restart and is per instance. Use a shared store (e.g. Redis) when
   running more than one instance.
 - **Messaging** is polling-based (`?after=cursor`), as the SRS describes "API-based" messaging. WebSockets could be

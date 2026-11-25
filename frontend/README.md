@@ -35,6 +35,7 @@ npm run dev                    # http://localhost:3000
 ```
 
 With the backend running on port 4000 (`npm run dev` in `backend/`), open <http://localhost:3000>.
+The complete setup, from installing the tools to signing in, is in the [root README](../README.md#3-run-it-on-your-own-computer-step-by-step).
 
 In development the backend **prints SMS codes in its console** instead of sending them, so keep that window visible
 when you register or sign in. Staff sign in needs an authenticator app: see "The development admin" in the backend
@@ -104,6 +105,18 @@ under 500 KB. Image paths from the API (`/uploads/...`) are resolved against the
 **Errors for people.** [src/lib/api/error-messages.ts](src/lib/api/error-messages.ts) holds one friendly sentence per backend error
 code. Raw codes are never shown.
 
+## Languages
+
+Text lives in `src/lib/i18n/locales/` (one file per area, with English, Kinyarwanda and French side by side). Pick a
+language with the switcher on any screen; signed-in people also save it on their account, and the sign-in SMS is
+written in it. Keys are typed, so a missing translation fails the type check, and a test checks that all three
+languages have the same keys and placeholders.
+
+## Demo mode
+
+When the backend runs with `DEMO_MODE=true`, the code screen shows a yellow card with the code and a **Use this code**
+button (`components/DemoCodeCard.tsx`). In normal use the server never returns a code, so the card never appears.
+
 ## Testing
 
 ```bash
@@ -116,13 +129,13 @@ They run without a backend.
 
 ## Known limitations and next steps
 
-- **Languages:** the screens are in English. The language switcher in Settings saves the choice to the account, but
-  the text does not change yet. Error messages are already kept in one table
-  ([error-messages.ts](src/lib/api/error-messages.ts)), so translating is mostly swapping strings.
+- **Languages:** Kinyarwanda, English and French are built in (see "Languages" above). The Kinyarwanda text is a
+  draft and should be reviewed by a native speaker. Browser tab titles are English only.
 - **Token storage:** tokens live in `localStorage`, which scripts on the page can read. For production, move to
   httpOnly cookies (this needs a small backend change).
 - **Messaging** is polling-based. WebSockets could replace it without changing the screens' data model.
-- **Not a PWA yet:** the SRS plans an installable app; there is no service worker or offline support.
+- **PWA:** the app has a web app manifest and icons, so it can be installed on a phone, but no service worker, so it
+  does not work offline.
 - **Locations:** provinces and districts come from a fixed list in [src/lib/locations.ts](src/lib/locations.ts) because the
   API stores them as plain text.
 - **Accessibility and devices:** layouts follow the 360px phone target, but the screens have not been tested on real
