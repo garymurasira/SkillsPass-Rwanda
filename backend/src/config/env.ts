@@ -22,13 +22,22 @@ const schema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   /** Public base URL of the bucket, e.g. https://pub-xxxx.r2.dev (no trailing slash). Photos are shown from here. */
   S3_PUBLIC_URL: z.string().url().optional(),
-  SMS_PROVIDER: z.enum(['console', 'pindo']).default('console'),
+  SMS_PROVIDER: z.enum(['console', 'pindo', 'africastalking']).default('console'),
   PINDO_API_TOKEN: z.string().min(1).optional(),
   PINDO_SENDER_ID: z.string().min(1).max(11).optional(),
+  // Africa's Talking. Username "sandbox" uses their free simulator: messages show on the simulator in the dashboard.
+  AT_USERNAME: z.string().min(1).optional(),
+  AT_API_KEY: z.string().min(1).optional(),
+  AT_SENDER_ID: z.string().min(1).max(11).optional(),
 }).superRefine((v, ctx) => {
   if (v.STORAGE_DRIVER === 's3') {
     for (const key of ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY', 'S3_PUBLIC_URL'] as const) {
       if (!v[key]) ctx.addIssue({ code: 'custom', path: [key], message: `required when STORAGE_DRIVER=s3` });
+    }
+  }
+  if (v.SMS_PROVIDER === 'africastalking') {
+    for (const key of ['AT_USERNAME', 'AT_API_KEY'] as const) {
+      if (!v[key]) ctx.addIssue({ code: 'custom', path: [key], message: `required when SMS_PROVIDER=africastalking` });
     }
   }
   if (v.SMS_PROVIDER !== 'pindo') return;
