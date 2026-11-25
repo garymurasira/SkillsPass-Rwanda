@@ -24,8 +24,14 @@ services:
         sync: false
       - key: PHONE_HASH_KEY
         sync: false
+      # Africa's Talking sandbox: no real SMS. Texts show in the simulator on the Africa's Talking dashboard.
+      # To send real SMS instead, set SMS_PROVIDER=pindo (and keep the Pindo values below).
       - key: SMS_PROVIDER
-        value: pindo
+        value: africastalking
+      - key: AT_USERNAME
+        value: sandbox
+      - key: AT_API_KEY
+        sync: false
       - key: PINDO_API_TOKEN
         sync: false
       - key: PINDO_SENDER_ID
