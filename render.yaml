@@ -1,0 +1,46 @@
+# Render Blueprint for the API. The database is Neon and the photos are in an S3-compatible bucket (see DEPLOY.md),
+# so every secret below is set in the Render dashboard (sync: false) and never written to this file.
+services:
+  - type: web
+    name: skillspass-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: PHONE_HASH_KEY
+        sync: false
+      - key: SMS_PROVIDER
+        value: pindo
+      - key: PINDO_API_TOKEN
+        sync: false
+      - key: PINDO_SENDER_ID
+        sync: false
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_REGION
+        value: eu-north-1
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false

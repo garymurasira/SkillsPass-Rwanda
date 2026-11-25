@@ -5,7 +5,8 @@ import { generateTotpSecret, otpauthUrl } from '../src/shared/totp';
 
 
 // Development-only admin so the verification workflow can be exercised. Do not seed this in production.
-const DEV_ADMIN_PHONE = '+250780000000';
+// Set ADMIN_PHONE to seed the admin on a number you control (e.g. for a deployed demo).
+const DEV_ADMIN_PHONE = process.env.ADMIN_PHONE ?? '+250780000000';
 
 async function main() {
   for (const st of skillTypes) {
