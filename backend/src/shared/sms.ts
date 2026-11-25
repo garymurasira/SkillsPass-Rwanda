@@ -56,52 +56,44 @@ export function createPindoProvider(opts: {
   };
 }
 
-const AT_SANDBOX_URL = 'https://api.sandbox.africastalking.com/version1/messaging';
-const AT_LIVE_URL = 'https://api.africastalking.com/version1/messaging';
+const ESMS_URL = 'https://sms.esmsafrica.io/api/messages/send';
 
-/** Africa's Talking. With the username "sandbox" nothing reaches a phone: the text appears in the dashboard simulator. */
-export function createAfricasTalkingProvider(opts: {
-  username: string;
+/** eSMS Africa. A test key (esms_test_...) never reaches a phone: delivery is simulated and the text shows in the dashboard's test logs. */
+export function createEsmsProvider(opts: {
   apiKey: string;
   sender?: string;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
 }): SmsProvider {
   const doFetch = opts.fetchFn ?? fetch;
-  const url = opts.username === 'sandbox' ? AT_SANDBOX_URL : AT_LIVE_URL;
   return {
     async send(toPhone, message) {
-      const form = new URLSearchParams({ username: opts.username, to: toPhone, message });
-      if (opts.sender) form.set('from', opts.sender);
       let res: Response;
       try {
-        res = await doFetch(url, {
+        res = await doFetch(ESMS_URL, {
           method: 'POST',
-          headers: { Accept: 'application/json', apiKey: opts.apiKey, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: form.toString(),
+          headers: { Authorization: `Bearer ${opts.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: toPhone, text: message, ...(opts.sender ? { sender_id: opts.sender } : {}) }),
           signal: AbortSignal.timeout(opts.timeoutMs ?? PINDO_TIMEOUT_MS),
         });
       } catch (err) {
         const reason = err instanceof Error ? err.name : 'unknown';
-        throw new Error(`Africa's Talking request to ${mask(toPhone)} failed (${reason})`, { cause: err });
+        throw new Error(`eSMS request to ${mask(toPhone)} failed (${reason})`, { cause: err });
       }
-      if (res.status !== 200 && res.status !== 201) {
-        throw new Error(`Africa's Talking rejected SMS to ${mask(toPhone)}: HTTP ${res.status}`);
+      // 200 = accepted (queued/submitted). Anything else (bad number, bad sender, no balance, bad key) is an HTTP error.
+      if (res.status !== 200 && res.status !== 201 && res.status !== 202) {
+        throw new Error(`eSMS rejected SMS to ${mask(toPhone)}: HTTP ${res.status}`);
       }
-      // 200/201 only means the request was understood. Each recipient has its own status (100-102 = accepted).
-      const body = (await res.json().catch(() => null)) as { SMSMessageData?: { Recipients?: { statusCode?: number }[] } } | null;
-      const recipient = body?.SMSMessageData?.Recipients?.[0];
-      if (!recipient || ![100, 101, 102].includes(Number(recipient.statusCode))) {
-        throw new Error(`Africa's Talking did not accept SMS to ${mask(toPhone)} (status ${recipient?.statusCode ?? 'none'})`);
-      }
+      const body = (await res.json().catch(() => null)) as { status?: string } | null;
+      if (body?.status === 'failed') throw new Error(`eSMS failed to send SMS to ${mask(toPhone)}`);
     },
   };
 }
 
 function buildProvider(): SmsProvider {
-  if (env.SMS_PROVIDER === 'africastalking') {
-    // env.ts guarantees both values exist when SMS_PROVIDER=africastalking.
-    return createAfricasTalkingProvider({ username: env.AT_USERNAME!, apiKey: env.AT_API_KEY!, sender: env.AT_SENDER_ID });
+  if (env.SMS_PROVIDER === 'esms') {
+    // env.ts guarantees the key exists when SMS_PROVIDER=esms.
+    return createEsmsProvider({ apiKey: env.ESMS_API_KEY!, sender: env.ESMS_SENDER_ID });
   }
   if (env.SMS_PROVIDER === 'pindo') {
     // env.ts guarantees both values exist when SMS_PROVIDER=pindo.
