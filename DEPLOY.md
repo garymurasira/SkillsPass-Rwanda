@@ -46,7 +46,7 @@ Close that terminal afterwards so the variables are gone.
 ## 5. API (Render)
 1. Push the branch to GitHub. Render → New → **Blueprint** → pick the repo and branch. It reads `render.yaml`.
 2. Fill in the variables marked "sync: false": `DATABASE_URL`, `DATA_ENCRYPTION_KEY`, `PHONE_HASH_KEY` (same values as step 4),
-   `PINDO_API_TOKEN`, `PINDO_SENDER_ID`, and the five `S3_*` values.
+   `ESMS_API_KEY` (or the Pindo values if you use real SMS), and the five `S3_*` values.
 3. Deploy. Open `https://<service>.onrender.com/api/health`; it should answer `ok`.
 
 The free plan sleeps after about 15 minutes idle. The first request after that takes up to a minute.
@@ -58,11 +58,12 @@ The free plan sleeps after about 15 minutes idle. The first request after that t
 
 ## 7. Check it
 - Landing page loads and the language switcher works.
-- Register with your own phone number: the SMS code arrives from Pindo.
+- Sign in: with `DEMO_MODE=true` the code shows on screen; otherwise it is sent by the SMS provider you chose.
 - Upload a profile photo and reload; the photo is still there after the API restarts.
 
 ## Things to know
-- With `SMS_PROVIDER=pindo`, codes go to real phones. The seeded demo accounts use fake numbers, so nobody can sign in
-  as them on the live site. Graders register their own account with their own number.
+- `SMS_PROVIDER=esms` with an `esms_test_` key simulates delivery: nothing reaches a phone. With `DEMO_MODE=true` the
+  web app shows the code on screen, so the seeded demo accounts (fake numbers) can be used. Turn `DEMO_MODE` off after
+  the demonstration. For real SMS, use `SMS_PROVIDER=pindo` or an `esms_live_` key.
 - The admin is seeded on `ADMIN_PHONE` (step 4). Staff sign-in needs that phone's SMS code plus the authenticator code.
 - The Pindo sender `PindoTest` is Pindo's sample sender. Register your own before a real launch.
