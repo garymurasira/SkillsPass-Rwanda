@@ -9,17 +9,26 @@ import { otpMessage } from './sms-text';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
+const DEMO_RESEND_COOLDOWN_MS = 5 * 1000;
+
+export const isDemoMode = () => env.DEMO_MODE === 'true';
 const MAX_ATTEMPTS = 5;
 
 const hashCode = (phoneHash: string, code: string) =>
   createHmac('sha256', env.PHONE_HASH_KEY).update(`${phoneHash}:${code}`).digest('hex');
 
 // `language` is the one saved on the person's account (or chosen at sign-up): the SMS is written in it.
-export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Prisma.InputJsonValue, language: Language = 'EN') {
+// Returns the code so that demo mode can show it; callers must not send it to the client otherwise.
+export async function issueOtp(
+  phone: string,
+  purpose: OtpPurpose,
+  payload?: Prisma.InputJsonValue,
+  language: Language = 'EN',
+): Promise<string> {
   const phoneHash = hashPhone(phone);
 
   const recent = await prisma.otpCode.findFirst({
-    where: { phoneHash, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } },
+    where: { phoneHash, createdAt: { gt: new Date(Date.now() - (isDemoMode() ? DEMO_RESEND_COOLDOWN_MS : RESEND_COOLDOWN_MS)) } },
   });
   if (recent) throw new AppError(429, 'OTP_TOO_SOON');
 
@@ -41,6 +50,7 @@ export async function issueOtp(phone: string, purpose: OtpPurpose, payload?: Pri
     console.error('SMS send failed:', err instanceof Error ? err.message : 'unknown error');
     throw new AppError(502, 'SMS_SEND_FAILED');
   }
+  return code;
 }
 
 // Checks the latest live code without using it up. A wrong guess counts against the attempt limit.

@@ -1095,6 +1095,10 @@ components:
             type: object
             properties:
               message: { type: string, example: OTP_SENT }
+              demoCode:
+                type: string
+                description: The 6-digit code. Only present when the server runs with `DEMO_MODE=true` (school demonstration); never in normal use.
+                example: '482913'
     ValidationError:
       description: Invalid input (`VALIDATION_ERROR`), or a business-rule failure such as `REFERENCE_IS_SELF`, `OTP_INVALID`, `INVALID_IMAGE`
       content:

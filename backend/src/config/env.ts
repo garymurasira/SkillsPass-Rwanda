@@ -11,6 +11,9 @@ const schema = z.object({
   PHONE_HASH_KEY: z.string().min(8),
   // Interactive API docs at /api/docs. On by default except in production.
   ENABLE_DOCS: z.enum(['true', 'false']).optional(),
+  // Demo mode (school demo only): the API also returns the sign-in code in its response and the app shows it, so the site
+  // can be tried without a phone. Anyone who knows a phone number can then sign in as it. Keep off unless demonstrating.
+  DEMO_MODE: z.enum(['true', 'false']).optional(),
   UPLOAD_DIR: z.string().default('uploads'),
   // "local" keeps photos on disk (development). "s3" uses any S3-compatible bucket (Cloudflare R2, Supabase, AWS S3),
   // needed on hosts whose disk is wiped on restart.

@@ -34,6 +34,9 @@ services:
         sync: false
       - key: PINDO_SENDER_ID
         sync: false
+      # School demonstration only: the app shows the sign-in code on screen so no phone is needed. Set to "false" (or remove) afterwards.
+      - key: DEMO_MODE
+        value: "true"
       - key: STORAGE_DRIVER
         value: s3
       - key: S3_REGION

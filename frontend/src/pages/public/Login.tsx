@@ -32,8 +32,9 @@ export default function Login() {
     setServerPhoneError(undefined);
     setFormError(null);
     if (fieldErrors(schema, { phone }).phone) return;
+    let sent: Awaited<ReturnType<typeof startLogin>>;
     try {
-      await mutation.mutateAsync(phone.trim());
+      sent = await mutation.mutateAsync(phone.trim());
     } catch (e) {
       const msg = fieldError(e, "phone");
       if (msg) setServerPhoneError(msg);
@@ -41,7 +42,7 @@ export default function Login() {
       else setFormError(errorMessage(e));
       return;
     }
-    savePending({ purpose: "LOGIN", phone: normalizePhone(phone) });
+    savePending({ purpose: "LOGIN", phone: normalizePhone(phone), demoCode: sent.demoCode });
     navigate({ to: "/otp" });
   }
 

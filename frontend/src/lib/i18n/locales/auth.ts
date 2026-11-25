@@ -35,6 +35,11 @@ export const auth = defineSection(
       wrongNumber: "Wrong number?",
       delete: "Delete",
     },
+    demo: {
+      badge: "DEMO MODE · no SMS sent",
+      yourCode: "Your code is",
+      use: "Use this code",
+    },
     admin: {
       title: "Staff sign in",
       sendSms: "Send SMS code",
@@ -82,6 +87,11 @@ export const auth = defineSection(
       wrongNumber: "Nimero siyo?",
       delete: "Siba",
     },
+    demo: {
+      badge: "UBUGERERANYE · nta SMS yoherejwe",
+      yourCode: "Kode yawe ni",
+      use: "Koresha iyi kode",
+    },
     admin: {
       title: "Abakozi binjirira hano",
       sendSms: "Ohereza kode kuri SMS",
@@ -128,6 +138,11 @@ export const auth = defineSection(
       resend: "Renvoyer le code",
       wrongNumber: "Mauvais numéro ?",
       delete: "Effacer",
+    },
+    demo: {
+      badge: "MODE DÉMO · aucun SMS envoyé",
+      yourCode: "Votre code est",
+      use: "Utiliser ce code",
     },
     admin: {
       title: "Connexion de l'équipe",

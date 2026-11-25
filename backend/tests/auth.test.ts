@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, afterAll } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, afterAll } from 'vitest';
 import request from 'supertest';
 import { app, employerBody, lastCode, lastSms, registerUser, resetDb, workerBody } from './helpers';
 import { prisma } from '../src/shared/prisma';
+import { env } from '../src/config/env';
 import { encrypt, hashPhone } from '../src/shared/crypto';
 import { generateTotpSecret, totpAt } from '../src/shared/totp';
 
@@ -248,5 +249,43 @@ describe('sign-in code SMS language', () => {
     await prisma.otpCode.deleteMany();
     await request(app).post('/api/auth/login').send({ phone: '0788123456' }).expect(202);
     expect(lastSms('+250788123456')).toMatch(/^Votre code SkillsPass/);
+  });
+});
+
+describe('demo mode (school demonstration)', () => {
+  const setDemo = (on: boolean) => {
+    env.DEMO_MODE = on ? 'true' : undefined;
+  };
+  afterEach(() => setDemo(false));
+
+  it('never returns the code in normal use', async () => {
+    const res = await request(app).post('/api/auth/register').send(workerBody('0788123456')).expect(202);
+    expect(res.body).toEqual({ message: 'OTP_SENT' });
+    await registerUser(workerBody('0788123400'));
+    await prisma.otpCode.deleteMany();
+    const login = await request(app).post('/api/auth/login').send({ phone: '0788123400' }).expect(202);
+    expect(login.body).toEqual({ message: 'OTP_SENT' });
+  });
+
+  it('returns the same code that was sent, and it signs the person in', async () => {
+    setDemo(true);
+    const res = await request(app).post('/api/auth/register').send(workerBody('0788123456')).expect(202);
+    expect(res.body.demoCode).toMatch(/^\d{6}$/);
+    expect(lastCode('+250788123456')).toBe(res.body.demoCode);
+    await request(app).post('/api/auth/register/verify').send({ phone: '0788123456', code: res.body.demoCode }).expect(201);
+
+    await prisma.otpCode.deleteMany();
+    const login = await request(app).post('/api/auth/login').send({ phone: '0788123456' }).expect(202);
+    expect(login.body.demoCode).toMatch(/^\d{6}$/);
+    await request(app).post('/api/auth/login/verify').send({ phone: '0788123456', code: login.body.demoCode }).expect(200);
+  });
+
+  it('shortens the wait between codes to a few seconds', async () => {
+    setDemo(true);
+    await request(app).post('/api/auth/register').send(workerBody('0788123456')).expect(202);
+    // Still blocked straight away, so a script cannot hammer the SMS provider.
+    await request(app).post('/api/auth/register').send(workerBody('0788123456')).expect(429);
+    await prisma.otpCode.updateMany({ data: { createdAt: new Date(Date.now() - 6000) } });
+    await request(app).post('/api/auth/register').send(workerBody('0788123456')).expect(202);
   });
 });

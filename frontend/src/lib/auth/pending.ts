@@ -6,8 +6,8 @@ import type { RegisterBody } from "../api/auth";
  * browser history, and so a page reload on the code screen still works.
  */
 export type PendingAuth =
-  | { purpose: "REGISTER"; phone: string; form: RegisterBody }
-  | { purpose: "LOGIN"; phone: string };
+  | { purpose: "REGISTER"; phone: string; form: RegisterBody; demoCode?: string | undefined }
+  | { purpose: "LOGIN"; phone: string; demoCode?: string | undefined };
 
 const KEY = "skillspass.pending-auth.v1";
 let memory: PendingAuth | null = null; // fallback when sessionStorage is blocked
