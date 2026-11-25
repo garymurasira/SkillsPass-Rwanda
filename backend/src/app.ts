@@ -10,6 +10,10 @@ import { UPLOAD_ROOT, UPLOAD_URL_PREFIX } from './shared/storage';
 export function createApp() {
   const app = express();
 
+  // Behind a host's proxy (Render, etc.) every request arrives from the proxy's address. Trusting one hop makes
+  // req.ip the real client, so the per-IP rate limits apply to each person instead of to everybody at once.
+  if (env.NODE_ENV === 'production') app.set('trust proxy', 1);
+
   // Mounted before helmet: Swagger UI needs inline scripts that helmet's default CSP blocks.
   const docsEnabled = env.ENABLE_DOCS === undefined ? env.NODE_ENV !== 'production' : env.ENABLE_DOCS === 'true';
   if (docsEnabled) app.use('/api', docsRouter());
